@@ -23,12 +23,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Leer filtros de la URL
   const params = new URLSearchParams(window.location.search);
   if (params.get('empresa_id'))   state.filtros.empresa_id  = params.get('empresa_id');
-  if (params.get('abogado_id'))   state.filtros.abogado_id  = params.get('abogado_id');
-  // proveedor_id (desde proveedores.html → "Ver casos") mapea al mismo filtro del backend
-  if (params.get('proveedor_id')) state.filtros.abogado_id  = params.get('proveedor_id');
+  // proveedor_id es el nombre canónico; se mantiene compat de lectura para abogado_id (URLs viejas)
+  if (params.get('proveedor_id'))    state.filtros.proveedor_id = params.get('proveedor_id');
+  else if (params.get('abogado_id')) state.filtros.proveedor_id = params.get('abogado_id'); // compat URL viejas
 
   // Banner informativo cuando se llega filtrado por abogado / proveedor
-  if (state.filtros.abogado_id) {
+  if (state.filtros.proveedor_id) {
     const topbar = document.querySelector('.topbar');
     if (topbar) {
       const esProveedor = !!params.get('proveedor_id');
@@ -93,7 +93,7 @@ async function cargarKpis() {
   try {
     const kpis = await asistenciasService.getKpis();
     setEl('kpi-activos',      kpis.activos           ?? '—');
-    setEl('kpi-sin-asignar',  kpis.sin_abogado        ?? '—');
+    setEl('kpi-sin-asignar',  kpis.sin_proveedor      ?? '—');
     setEl('kpi-criticos',     kpis.criticos_abiertos  ?? '—');
   } catch { /* silencioso */ }
 }
@@ -155,7 +155,7 @@ function renderFilas(rows) {
     const urg    = fmt.urgencia(r.nivel_urgencia);
     const est    = fmt.estatus(r.estatus_operativo);
     const canal  = fmt.canal(r.canal_origen);
-    const sinAb  = !r.abogado_nombre;
+    const sinAb  = !r.proveedor_nombre;
 
     return `
       <tr class="urgencia-row--${r.nivel_urgencia}" style="cursor:pointer" data-id="${r.id}">
@@ -175,8 +175,8 @@ function renderFilas(rows) {
         <td style="font-size:12px">${r.empresa_nombre || '<span style="color:#94a3b8">—</span>'}</td>
         <td>${fmt.badgeHtml(urg.label, urg.class)}</td>
         <td>${fmt.badgeHtml(est.label, est.class)}</td>
-        <td style="font-size:12px">${r.abogado_nombre
-          ? `<span style="color:#0f172a;font-weight:600">${r.abogado_nombre}</span>`
+        <td style="font-size:12px">${r.proveedor_nombre
+          ? `<span style="color:#0f172a;font-weight:600">${r.proveedor_nombre}</span>`
           : '<span style="color:#94a3b8">Sin asignar</span>'
         }</td>
         <td style="font-size:11px;color:#64748b">${fmt.tiempoRelativo(r.created_at)}</td>
@@ -267,12 +267,12 @@ function setEl(id, value) {
 }
 
 function quitarFiltroAbogado() {
-  state.filtros.abogado_id = '';
+  state.filtros.proveedor_id = '';
   document.getElementById('filtro-abogado-banner')?.remove();
   // Limpiar ambos params de la URL sin recargar la página
   const url = new URL(window.location.href);
-  url.searchParams.delete('abogado_id');
   url.searchParams.delete('proveedor_id');
+  url.searchParams.delete('abogado_id'); // limpiar también compat
   window.history.replaceState({}, '', url);
   state.page = 1;
   cargarBandeja();

@@ -35,9 +35,9 @@ const asistenciasService = {
     return api.post(`/asistencias/${id}/estatus`, { estatus_operativo, comentario });
   },
 
-  // ─── Asignar abogado ────────────────────────────────────────────────────────
-  async asignarAbogado(id, abogado_id) {
-    return api.post(`/asistencias/${id}/abogado`, { abogado_id });
+  // ─── Asignar proveedor ──────────────────────────────────────────────────────
+  async asignarProveedor(id, proveedor_id) {
+    return api.post(`/asistencias/${id}/proveedor`, { proveedor_id });
   },
 
   // ─── Cerrar expediente ──────────────────────────────────────────────────────
