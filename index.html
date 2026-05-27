@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Kogu Asistencias — Acceso</title>
+  <link rel="stylesheet" href="/styles/styles.css">
+  <style>
+    .hero-tag{display:inline-flex;align-items:center;gap:8px;background:rgba(8,145,178,.18);border:1px solid rgba(103,232,249,.22);border-radius:999px;padding:6px 14px;font-size:12px;color:#67e8f9;font-weight:700;letter-spacing:.08em;margin-bottom:20px}
+    .hero-title{font-size:42px;font-weight:700;line-height:1.08;letter-spacing:-.02em;margin:0 0 16px}
+    .hero-sub{color:#94a3b8;font-size:15px;line-height:1.6;max-width:420px}
+    .hero-features{margin-top:28px;display:grid;gap:10px}
+    .hero-feat{display:flex;align-items:center;gap:10px;color:#cbd5e1;font-size:14px}
+    .feat-dot{width:8px;height:8px;border-radius:50%;background:#0891b2;flex-shrink:0}
+    .login-stat-v{font-size:28px;font-weight:700;margin-bottom:4px}
+    .login-stat-k{color:#94a3b8;font-size:12px}
+    .login-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:20px}
+    .login-box-title{font-size:24px;font-weight:700;margin:0 0 4px}
+    .login-box-sub{color:#64748b;font-size:13px;margin:0 0 20px}
+    .input-wrap{position:relative}
+    .input-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:16px;color:#94a3b8}
+    .input-wrap .input{padding-left:36px}
+    .btn-full{width:100%;justify-content:center;display:flex;align-items:center;gap:8px;padding:12px 16px;font-size:14px;border-radius:16px;border:none;cursor:pointer;font-weight:700}
+    .btn-full.dark{background:#0f172a;color:#fff}
+    .divider-text{display:flex;align-items:center;gap:10px;color:#94a3b8;font-size:12px;margin:12px 0}
+    .divider-text::before,.divider-text::after{content:'';flex:1;height:1px;background:#e2e8f0}
+    .channels{display:flex;gap:8px;flex-wrap:wrap}
+    .channel-chip{flex:1;min-width:90px;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 10px;border-radius:12px;border:1px solid #e2e8f0;background:#fff;font-size:12px;font-weight:600;cursor:pointer;color:#374151}
+    .channel-chip:hover{border-color:#0891b2;color:#0891b2}
+    .hero-bottom{margin-top:auto;padding-top:24px}
+  </style>
+</head>
+<body>
+
+<div class="login-shell">
+
+  <!-- ── HERO ── -->
+  <div class="login-hero">
+    <div>
+      <div class="hero-tag">
+        <span>⚡</span> Plataforma de Asistencias
+      </div>
+      <h1 class="hero-title">Kogu<br>Asistencias</h1>
+      <p class="hero-sub">Apertura, asignación y seguimiento de servicios de asistencia derivados de siniestros automotrices — desde cabina, web y WhatsApp.</p>
+
+      <div class="hero-features">
+        <div class="hero-feat"><span class="feat-dot"></span> Expediente único desde cualquier canal</div>
+        <div class="hero-feat"><span class="feat-dot"></span> Formularios dinámicos por tipo de asistencia</div>
+        <div class="hero-feat"><span class="feat-dot"></span> Asignación inteligente por zona y especialidad</div>
+        <div class="hero-feat"><span class="feat-dot"></span> Bitácora completa y trazabilidad total</div>
+      </div>
+    </div>
+
+    <div class="hero-bottom">
+      <div style="color:#94a3b8;font-size:11px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:10px">Operación de hoy</div>
+      <div class="login-stats">
+        <div class="login-stat">
+          <div class="login-stat-v">47</div>
+          <div class="login-stat-k">Casos abiertos</div>
+        </div>
+        <div class="login-stat">
+          <div class="login-stat-v">12</div>
+          <div class="login-stat-k">Críticos</div>
+        </div>
+        <div class="login-stat">
+          <div class="login-stat-v">38 min</div>
+          <div class="login-stat-k">T. promedio</div>
+        </div>
+      </div>
+
+      <div class="hero-note" style="margin-top:16px">
+        <strong>Primera vertical activa:</strong> Asistencia Legal en Siniestros Automotrices
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL DE LOGIN ── -->
+  <div class="login-panel">
+    <div class="login-box">
+      <div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#0891b2;font-weight:700;margin-bottom:10px">Acceso al sistema</div>
+      <h2 class="login-box-title">Bienvenido de vuelta</h2>
+      <p class="login-box-sub">Ingresa tus credenciales para continuar</p>
+
+      <form id="login-form" autocomplete="on">
+        <div class="form-grid">
+
+          <!-- Selector de ambiente -->
+          <div>
+            <div class="label-text" style="letter-spacing:.12em;font-size:11px;color:#0891b2">Ambiente</div>
+            <div class="input-wrap">
+              <span class="input-icon">🌐</span>
+              <select id="select-ambiente" class="input" style="padding-left:36px;background:#fff;cursor:pointer">
+                <!-- Opciones generadas por auth.js -->
+              </select>
+            </div>
+            <div id="ambiente-url" style="font-size:10px;color:#94a3b8;margin-top:4px;padding-left:2px;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+          </div>
+
+          <div>
+            <div class="label-text">Correo electrónico</div>
+            <div class="input-wrap">
+              <span class="input-icon">✉</span>
+              <input id="email" class="input" type="email" placeholder="operador@kogu.mx"
+                     autocomplete="username" required>
+            </div>
+          </div>
+          <div>
+            <div class="label-text">Contraseña</div>
+            <div class="input-wrap">
+              <span class="input-icon">🔒</span>
+              <input id="password" class="input" type="password" placeholder="••••••••"
+                     autocomplete="current-password" required>
+            </div>
+          </div>
+
+          <div id="login-error" style="display:none;color:#dc2626;font-size:13px;
+               background:#fef2f2;border:1px solid #fecaca;border-radius:6px;
+               padding:10px 14px;margin-top:-4px"></div>
+
+          <button id="btn-login" type="submit" class="btn-full dark">
+            Ingresar al sistema →
+          </button>
+        </div>
+      </form>
+
+      <div class="divider-text">o abre un caso directamente</div>
+
+      <div class="channels">
+        <div class="channel-chip">📞 Cabina</div>
+        <div class="channel-chip">🌐 Web pública</div>
+        <div class="channel-chip">💬 WhatsApp</div>
+      </div>
+
+      <div style="margin-top:18px;padding-top:14px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:12px;color:#94a3b8">¿Olvidaste tu contraseña?</div>
+        <div style="font-size:11px;color:#cbd5e1;background:#0f172a;border-radius:999px;padding:4px 10px">v1.0 · Fase 1</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+  <!-- Kogu Asistencias: login -->
+  <script src="/js/config.js"></script>
+  <script src="/js/services/api.js"></script>
+  <script src="/js/services/auth.service.js"></script>
+  <script src="/js/utils/toast.js"></script>
+  <script src="/js/pages/auth.js"></script>
+</body>
+</html>

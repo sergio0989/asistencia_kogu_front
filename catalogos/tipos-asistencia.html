@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Catálogo de servicios — Kogu Asistencias</title>
+  <link rel="stylesheet" href="/styles/styles.css">
+  <style>
+    /* ── Grid de tipos ── */
+    .tipos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+    .tipo-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;transition:box-shadow .15s}
+    .tipo-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.08)}
+    .tipo-card--inactivo{opacity:.65}
+    .tipo-header{display:flex;align-items:center;gap:14px;padding:18px 20px 14px}
+    .tipo-badge{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+    .tipo-nombre{font-size:15px;font-weight:700;color:#0f172a}
+    .tipo-clave{display:inline-block;background:#f1f5f9;color:#475569;border-radius:6px;font-size:10px;font-weight:700;padding:2px 7px;margin-top:2px;font-family:monospace;letter-spacing:.05em}
+    .tipo-meta{display:flex;gap:16px;padding:0 20px 14px;font-size:12px;color:#64748b}
+    .tipo-meta span{display:flex;align-items:center;gap:4px}
+    .tipo-actions{display:flex;gap:8px;padding:12px 20px;border-top:1px solid #f8fafc;background:#fafbfc}
+
+    /* ── Panel de detalle (drawer) ── */
+    .drawer-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:40;display:none}
+    .drawer{position:fixed;top:0;right:0;bottom:0;width:min(600px,100vw);background:#fff;z-index:50;
+            display:flex;flex-direction:column;box-shadow:-8px 0 40px rgba(0,0,0,.12);
+            transform:translateX(100%);transition:transform .25s ease}
+    .drawer.open{transform:translateX(0)}
+    .drawer-header{display:flex;align-items:center;gap:12px;padding:20px 24px;border-bottom:1px solid #f1f5f9;flex-shrink:0}
+    .drawer-badge{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+    .drawer-title{font-size:16px;font-weight:700;color:#0f172a;flex:1}
+    .drawer-close{background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;line-height:1;padding:4px 8px}
+    .drawer-body{flex:1;overflow-y:auto;padding:0}
+
+    /* ── Tabs dentro del drawer ── */
+    .drawer-tabs{display:flex;border-bottom:1px solid #e2e8f0;padding:0 24px;background:#fff;position:sticky;top:0;z-index:1}
+    .drawer-tab{padding:12px 16px;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+    .drawer-tab.active{color:#0891b2;border-bottom-color:#0891b2}
+    .drawer-panel{padding:20px 24px;display:none}
+    .drawer-panel.active{display:block}
+
+    /* ── Subtipo chips ── */
+    .subtipo-list{display:flex;flex-direction:column;gap:8px}
+    .subtipo-row{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f8fafc;border-radius:10px;border:1px solid #f1f5f9}
+    .subtipo-row--inactivo{opacity:.55}
+    .subtipo-clave{font-size:10px;font-weight:700;font-family:monospace;background:#e2e8f0;color:#475569;padding:2px 6px;border-radius:5px}
+    .subtipo-nombre{flex:1;font-size:13px;font-weight:600;color:#0f172a}
+    .toggle-switch{position:relative;width:36px;height:20px;flex-shrink:0}
+    .toggle-switch input{opacity:0;width:0;height:0}
+    .toggle-slider{position:absolute;inset:0;background:#e2e8f0;border-radius:999px;cursor:pointer;transition:background .2s}
+    .toggle-slider:before{content:'';position:absolute;height:14px;width:14px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:transform .2s}
+    .toggle-switch input:checked+.toggle-slider{background:#0891b2}
+    .toggle-switch input:checked+.toggle-slider:before{transform:translateX(16px)}
+
+    /* ── Formularios ── */
+    .form-item{border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:10px}
+    .form-item__nombre{font-size:13px;font-weight:700;color:#0f172a}
+    .form-item__meta{font-size:11px;color:#94a3b8;margin-top:2px}
+    .form-item__actions{display:flex;gap:6px;margin-top:10px}
+    .json-editor{width:100%;min-height:320px;font-family:monospace;font-size:11px;padding:12px;border:1px solid #e2e8f0;border-radius:8px;resize:vertical;line-height:1.5;color:#1e293b;background:#f8fafc;box-sizing:border-box}
+    .json-editor:focus{outline:none;border-color:#0891b2;background:#fff}
+    .json-error{font-size:11px;color:#dc2626;margin-top:4px;display:none}
+
+    /* ── Sección header dentro del drawer ── */
+    .section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+    .section-head h4{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#475569;margin:0}
+
+    /* ── Color picker swatch ── */
+    .color-swatch{width:28px;height:28px;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer;flex-shrink:0}
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar" id="sidebar-placeholder"></aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="eyebrow">Catálogos</div>
+        <h1>Tipos de servicio</h1>
+        <p>Gestiona tipos, subtipos y cuestionarios de asistencia. Fase 1 operativa: <strong>Asistencia Legal</strong>.</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#64748b;cursor:pointer">
+          <input type="checkbox" id="chk-mostrar-inactivos" style="cursor:pointer">
+          Mostrar inactivos
+        </label>
+        <button class="btn btn-primary" id="btn-nuevo-tipo">➕ Nuevo tipo</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div id="tipos-grid" class="tipos-grid">
+        <div style="grid-column:1/-1;text-align:center;padding:48px;color:#94a3b8">Cargando catálogo…</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ══ DRAWER DE DETALLE ═══════════════════════════════════════════════════════ -->
+<div class="drawer-backdrop" id="drawer-backdrop" onclick="cerrarDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-header">
+    <div class="drawer-badge" id="drawer-badge">⚖️</div>
+    <div>
+      <div class="drawer-title" id="drawer-title">—</div>
+      <div style="font-size:12px;color:#64748b" id="drawer-clave">—</div>
+    </div>
+    <button class="drawer-close" onclick="cerrarDrawer()">✕</button>
+  </div>
+
+  <div class="drawer-tabs">
+    <div class="drawer-tab active" data-drawer-tab="subtipos" onclick="cambiarDrawerTab('subtipos')">Subtipos</div>
+    <div class="drawer-tab" data-drawer-tab="formularios" onclick="cambiarDrawerTab('formularios')">Cuestionarios</div>
+  </div>
+
+  <div class="drawer-body">
+    <!-- TAB: Subtipos -->
+    <div class="drawer-panel active" id="panel-subtipos">
+      <div class="section-head">
+        <h4>Subtipos</h4>
+        <button class="btn btn-primary btn-sm" onclick="abrirModalSubtipo()">➕ Nuevo subtipo</button>
+      </div>
+      <div id="lista-subtipos" class="subtipo-list">
+        <div style="text-align:center;padding:24px;color:#94a3b8">Cargando…</div>
+      </div>
+    </div>
+
+    <!-- TAB: Cuestionarios -->
+    <div class="drawer-panel" id="panel-formularios">
+      <div class="section-head">
+        <h4>Cuestionarios</h4>
+        <button class="btn btn-primary btn-sm" onclick="abrirModalFormulario()">➕ Nuevo cuestionario</button>
+      </div>
+      <div id="lista-formularios">
+        <div style="text-align:center;padding:24px;color:#94a3b8">Cargando…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: Tipo ════════════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="modal-tipo" style="display:none">
+  <div class="modal-box" style="max-width:480px">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-tipo-titulo">Nuevo tipo de asistencia</h3>
+      <button class="modal-close" onclick="modal.close('modal-tipo')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Nombre <span style="color:#dc2626">*</span></label>
+          <input type="text" id="t-nombre" class="form-control" maxlength="100">
+        </div>
+        <div class="form-group">
+          <label>Clave (ej. LEG, MED) <span style="color:#dc2626">*</span></label>
+          <input type="text" id="t-clave" class="form-control" maxlength="20" placeholder="3-5 letras mayúsculas" style="text-transform:uppercase">
+        </div>
+        <div class="form-group form-group--full">
+          <label>Descripción</label>
+          <input type="text" id="t-descripcion" class="form-control" maxlength="300">
+        </div>
+        <div class="form-group">
+          <label>Icono (nombre Lucide)</label>
+          <input type="text" id="t-icono" class="form-control" maxlength="50" placeholder="ej. scale, heart-pulse">
+        </div>
+        <div class="form-group">
+          <label>Color (hex)</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="text" id="t-color" class="form-control" maxlength="7" placeholder="#0891b2">
+            <input type="color" id="t-color-picker" value="#0891b2" style="width:36px;height:36px;border:none;border-radius:6px;cursor:pointer;padding:0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Orden</label>
+          <input type="number" id="t-orden" class="form-control" min="0" value="0">
+        </div>
+        <div class="form-group" style="align-self:end">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="t-activo" checked>
+            Activo
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-tipo')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-tipo">Guardar tipo</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: Subtipo ════════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="modal-subtipo" style="display:none">
+  <div class="modal-box" style="max-width:440px">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-subtipo-titulo">Nuevo subtipo</h3>
+      <button class="modal-close" onclick="modal.close('modal-subtipo')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group form-group--full">
+          <label>Nombre <span style="color:#dc2626">*</span></label>
+          <input type="text" id="s-nombre" class="form-control" maxlength="100">
+        </div>
+        <div class="form-group">
+          <label>Clave (ej. CON_DETENIDO) <span style="color:#dc2626">*</span></label>
+          <input type="text" id="s-clave" class="form-control" maxlength="30" placeholder="MAYUSCULAS_CON_GUION" style="text-transform:uppercase">
+        </div>
+        <div class="form-group">
+          <label>Orden</label>
+          <input type="number" id="s-orden" class="form-control" min="0" value="0">
+        </div>
+        <div class="form-group form-group--full">
+          <label>Descripción</label>
+          <input type="text" id="s-descripcion" class="form-control" maxlength="300">
+        </div>
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="s-activo" checked> Activo
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-subtipo')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-subtipo">Guardar subtipo</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: Formulario / Cuestionario ══════════════════════════════════════ -->
+<div class="modal-backdrop" id="modal-formulario" style="display:none">
+  <div class="modal-box" style="max-width:680px">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-form-titulo">Nuevo cuestionario</h3>
+      <button class="modal-close" onclick="modal.close('modal-formulario')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" style="margin-bottom:16px">
+        <div class="form-group">
+          <label>Nombre <span style="color:#dc2626">*</span></label>
+          <input type="text" id="f-nombre" class="form-control" maxlength="100">
+        </div>
+        <div class="form-group">
+          <label>Subtipo (opcional)</label>
+          <select id="f-subtipo" class="form-control">
+            <option value="">— Aplica a todos los subtipos —</option>
+          </select>
+        </div>
+        <div class="form-group form-group--full">
+          <label>Descripción</label>
+          <input type="text" id="f-descripcion" class="form-control" maxlength="300">
+        </div>
+        <div class="form-group">
+          <label>Orden</label>
+          <input type="number" id="f-orden" class="form-control" min="0" value="1">
+        </div>
+        <div class="form-group" style="align-self:end">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="f-activo" checked> Activo
+          </label>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#475569;display:flex;justify-content:space-between;margin-bottom:6px">
+          <span>Esquema JSON <span style="color:#dc2626">*</span></span>
+          <button type="button" onclick="formatearJson()" style="background:none;border:none;font-size:11px;color:#0891b2;cursor:pointer;font-weight:600">⚙ Formatear</button>
+        </label>
+        <textarea id="f-esquema" class="json-editor" spellcheck="false"></textarea>
+        <div id="f-esquema-error" class="json-error">⚠ JSON inválido — revisa la sintaxis antes de guardar</div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:4px">
+          El esquema define secciones y campos que el sistema renderizará en el alta del caso.
+          <a href="#" onclick="insertarEjemplo();return false" style="color:#0891b2;text-decoration:none">Insertar ejemplo</a>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-formulario')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-formulario">Guardar cuestionario</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/services/api.js"></script>
+<script src="/js/services/auth.service.js"></script>
+<script src="/js/services/catalogos.service.js"></script>
+<script src="/js/utils/format.js"></script>
+<script src="/js/utils/toast.js"></script>
+<script src="/js/utils/modal.js"></script>
+<script src="/js/components/sidebar.js"></script>
+<script src="/js/utils/auth.guard.js"></script>
+<script>
+'use strict';
+
+const st = {
+  tipos:          [],
+  tipoActivo:     null,   // tipo abierto en el drawer
+  subtipos:       [],
+  formularios:    [],
+  editandoTipoId:     null,
+  editandoSubtipoId:  null,
+  editandoFormId:     null,
+};
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await cargarTipos();
+  document.getElementById('chk-mostrar-inactivos')?.addEventListener('change', () => renderTipos());
+  document.getElementById('btn-nuevo-tipo')?.addEventListener('click', abrirModalTipo);
+  document.getElementById('btn-guardar-tipo')?.addEventListener('click', guardarTipo);
+  document.getElementById('btn-guardar-subtipo')?.addEventListener('click', guardarSubtipo);
+  document.getElementById('btn-guardar-formulario')?.addEventListener('click', guardarFormulario);
+  document.getElementById('t-color-picker')?.addEventListener('input', e => {
+    document.getElementById('t-color').value = e.target.value;
+  });
+  document.getElementById('t-color')?.addEventListener('input', e => {
+    if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) {
+      document.getElementById('t-color-picker').value = e.target.value;
+    }
+  });
+});
+
+// ─── Cargar todos los tipos (incluye inactivos para el admin) ─────────────────
+async function cargarTipos() {
+  try {
+    st.tipos = await catalogosService.getTiposAdmin() || [];
+    renderTipos();
+  } catch (err) {
+    toast.error('Error al cargar el catálogo');
+    console.error(err);
+  }
+}
+
+function renderTipos() {
+  const grid = document.getElementById('tipos-grid');
+  if (!grid) return;
+  const mostrarInactivos = document.getElementById('chk-mostrar-inactivos')?.checked;
+  const tipos = mostrarInactivos ? st.tipos : st.tipos.filter(t => t.activo);
+
+  if (!tipos.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:48px;color:#94a3b8">
+      No hay tipos de asistencia configurados.</div>`;
+    return;
+  }
+
+  grid.innerHTML = tipos.map(t => {
+    const color   = t.color || '#64748b';
+    const bgColor = color + '22'; // 13% opacity
+    const badge   = t.activo
+      ? '<span class="badge success" style="font-size:10px">● Activo</span>'
+      : '<span class="badge" style="background:#f1f5f9;color:#94a3b8;font-size:10px">● Fase futura</span>';
+
+    return `
+      <div class="tipo-card ${!t.activo ? 'tipo-card--inactivo' : ''}" style="border-left:4px solid ${color}">
+        <div class="tipo-header">
+          <div class="tipo-badge" style="background:${bgColor}">
+            ${iconoEmoji(t.icono, t.clave)}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div class="tipo-nombre">${t.nombre}</div>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
+              <span class="tipo-clave">${t.clave}</span>
+              ${badge}
+            </div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="editarTipo('${t.id}')" title="Editar tipo">✏️</button>
+        </div>
+        ${t.descripcion ? `<div style="padding:0 20px 12px;font-size:12px;color:#64748b">${t.descripcion}</div>` : ''}
+        <div class="tipo-actions">
+          <button class="btn btn-ghost btn-sm" onclick="abrirDrawer('${t.id}')">
+            🗂️ Gestionar subtipos y cuestionarios
+          </button>
+          ${t.activo
+            ? `<button class="btn btn-ghost btn-sm" onclick="toggleTipo('${t.id}', false)" style="color:#dc2626">Desactivar</button>`
+            : `<button class="btn btn-ghost btn-sm" onclick="toggleTipo('${t.id}', true)" style="color:#16a34a">Activar</button>`}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ─── Drawer de gestión ────────────────────────────────────────────────────────
+async function abrirDrawer(tipoId) {
+  st.tipoActivo = st.tipos.find(t => t.id === tipoId);
+  if (!st.tipoActivo) return;
+
+  const t     = st.tipoActivo;
+  const color = t.color || '#64748b';
+
+  document.getElementById('drawer-badge').style.background = color + '22';
+  document.getElementById('drawer-badge').textContent      = iconoEmoji(t.icono, t.clave);
+  document.getElementById('drawer-title').textContent      = t.nombre;
+  document.getElementById('drawer-clave').textContent      = t.clave;
+
+  document.getElementById('drawer-backdrop').style.display = 'block';
+  document.getElementById('drawer').classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  cambiarDrawerTab('subtipos');
+  await cargarSubtipos();
+}
+
+function cerrarDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer-backdrop').style.display = 'none';
+  document.body.style.overflow = '';
+  st.tipoActivo = null;
+}
+
+function cambiarDrawerTab(tab) {
+  document.querySelectorAll('.drawer-tab').forEach(t => t.classList.toggle('active', t.dataset.drawerTab === tab));
+  document.querySelectorAll('.drawer-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + tab)?.classList.add('active');
+
+  if (tab === 'formularios' && st.tipoActivo) cargarFormularios();
+}
+
+// ─── Subtipos ─────────────────────────────────────────────────────────────────
+async function cargarSubtipos() {
+  const lista = document.getElementById('lista-subtipos');
+  lista.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8">Cargando…</div>';
+  try {
+    st.subtipos = await catalogosService.getSubtiposAdmin(st.tipoActivo.id) || [];
+    renderSubtipos();
+  } catch { toast.error('Error al cargar subtipos'); }
+}
+
+function renderSubtipos() {
+  const lista = document.getElementById('lista-subtipos');
+  if (!st.subtipos.length) {
+    lista.innerHTML = '<div style="text-align:center;padding:24px;color:#94a3b8">Sin subtipos configurados.</div>';
+    return;
+  }
+  lista.innerHTML = st.subtipos.map(s => `
+    <div class="subtipo-row ${!s.activo ? 'subtipo-row--inactivo' : ''}">
+      <span class="subtipo-clave">${s.clave}</span>
+      <span class="subtipo-nombre">${s.nombre}</span>
+      <button class="btn btn-ghost btn-sm" onclick="editarSubtipo('${s.id}')" title="Editar">✏️</button>
+      <label class="toggle-switch" title="${s.activo ? 'Desactivar' : 'Activar'}">
+        <input type="checkbox" ${s.activo ? 'checked' : ''}
+          onchange="toggleSubtipo('${s.id}', this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>`).join('');
+}
+
+// ─── Formularios ──────────────────────────────────────────────────────────────
+async function cargarFormularios() {
+  const lista = document.getElementById('lista-formularios');
+  lista.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8">Cargando…</div>';
+  try {
+    st.formularios = await catalogosService.getFormulariosAdmin(st.tipoActivo.id) || [];
+    renderFormularios();
+    // Actualizar select de subtipos en el modal
+    const sel = document.getElementById('f-subtipo');
+    if (sel) {
+      sel.innerHTML = '<option value="">— Aplica a todos los subtipos —</option>' +
+        st.subtipos.map(s => `<option value="${s.id}">${s.nombre} (${s.clave})</option>`).join('');
+    }
+  } catch { toast.error('Error al cargar cuestionarios'); }
+}
+
+function renderFormularios() {
+  const lista = document.getElementById('lista-formularios');
+  if (!st.formularios.length) {
+    lista.innerHTML = '<div style="text-align:center;padding:24px;color:#94a3b8">Sin cuestionarios configurados.</div>';
+    return;
+  }
+  lista.innerHTML = st.formularios.map(f => `
+    <div class="form-item" style="${!f.activo ? 'opacity:.6' : ''}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div>
+          <div class="form-item__nombre">${f.nombre}</div>
+          <div class="form-item__meta">
+            ${f.subtipo_nombre ? `Subtipo: <strong>${f.subtipo_nombre}</strong>` : 'Aplica a todos los subtipos'}
+            · ${secciones(f.esquema)} sección(es)
+            · <span class="${f.activo ? 'badge success' : 'badge'}" style="font-size:10px">${f.activo ? 'Activo' : 'Inactivo'}</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-ghost btn-sm" onclick="editarFormulario('${f.id}')">✏️ Editar</button>
+          <label class="toggle-switch" title="${f.activo ? 'Desactivar' : 'Activar'}">
+            <input type="checkbox" ${f.activo ? 'checked' : ''}
+              onchange="toggleFormulario('${f.id}', this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function secciones(esquema) {
+  try {
+    const s = typeof esquema === 'string' ? JSON.parse(esquema) : esquema;
+    return s?.secciones?.length ?? 0;
+  } catch { return '?'; }
+}
+
+// ─── Modal Tipo ───────────────────────────────────────────────────────────────
+function abrirModalTipo() {
+  st.editandoTipoId = null;
+  limpiarFormTipo();
+  document.getElementById('modal-tipo-titulo').textContent = 'Nuevo tipo de asistencia';
+  document.getElementById('t-clave').disabled = false;
+  modal.open('modal-tipo');
+}
+
+async function editarTipo(id) {
+  const t = st.tipos.find(x => x.id === id);
+  if (!t) return;
+  st.editandoTipoId = id;
+  document.getElementById('modal-tipo-titulo').textContent = 'Editar: ' + t.nombre;
+  document.getElementById('t-nombre').value     = t.nombre     || '';
+  document.getElementById('t-clave').value      = t.clave      || '';
+  document.getElementById('t-clave').disabled   = true; // no cambiar clave
+  document.getElementById('t-descripcion').value= t.descripcion|| '';
+  document.getElementById('t-icono').value      = t.icono      || '';
+  document.getElementById('t-color').value      = t.color      || '';
+  document.getElementById('t-color-picker').value = t.color    || '#0891b2';
+  document.getElementById('t-orden').value      = t.orden ?? 0;
+  document.getElementById('t-activo').checked   = t.activo;
+  modal.open('modal-tipo');
+}
+
+async function guardarTipo() {
+  const nombre = document.getElementById('t-nombre').value.trim();
+  const clave  = document.getElementById('t-clave').value.trim().toUpperCase();
+  if (!nombre)           { toast.warning('El nombre es obligatorio'); return; }
+  if (!st.editandoTipoId && !clave) { toast.warning('La clave es obligatoria'); return; }
+
+  const data = {
+    nombre,
+    descripcion: document.getElementById('t-descripcion').value.trim() || undefined,
+    icono:       document.getElementById('t-icono').value.trim()       || undefined,
+    color:       document.getElementById('t-color').value.trim()       || undefined,
+    orden:       parseInt(document.getElementById('t-orden').value)    || 0,
+    activo:      document.getElementById('t-activo').checked,
+  };
+  if (!st.editandoTipoId) data.clave = clave;
+
+  const btn = document.getElementById('btn-guardar-tipo');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    if (st.editandoTipoId) {
+      await catalogosService.actualizarTipo(st.editandoTipoId, data);
+      toast.success('Tipo actualizado');
+    } else {
+      await catalogosService.crearTipo(data);
+      toast.success('Tipo creado');
+    }
+    modal.close('modal-tipo');
+    await cargarTipos();
+  } catch (err) {
+    toast.error(err.message || 'Error al guardar el tipo');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar tipo';
+  }
+}
+
+async function toggleTipo(id, activo) {
+  try {
+    await catalogosService.actualizarTipo(id, { activo });
+    st.tipos = st.tipos.map(t => t.id === id ? { ...t, activo } : t);
+    renderTipos();
+    toast.success(activo ? 'Tipo activado' : 'Tipo desactivado');
+  } catch { toast.error('Error al cambiar estado'); }
+}
+
+function limpiarFormTipo() {
+  ['t-nombre','t-clave','t-descripcion','t-icono'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('t-color').value        = '#0891b2';
+  document.getElementById('t-color-picker').value = '#0891b2';
+  document.getElementById('t-orden').value         = '0';
+  document.getElementById('t-activo').checked      = true;
+}
+
+// ─── Modal Subtipo ────────────────────────────────────────────────────────────
+function abrirModalSubtipo() {
+  st.editandoSubtipoId = null;
+  limpiarFormSubtipo();
+  document.getElementById('modal-subtipo-titulo').textContent = `Nuevo subtipo — ${st.tipoActivo?.nombre}`;
+  document.getElementById('s-clave').disabled = false;
+  modal.open('modal-subtipo');
+}
+
+function editarSubtipo(id) {
+  const s = st.subtipos.find(x => x.id === id);
+  if (!s) return;
+  st.editandoSubtipoId = id;
+  document.getElementById('modal-subtipo-titulo').textContent = 'Editar subtipo';
+  document.getElementById('s-nombre').value      = s.nombre      || '';
+  document.getElementById('s-clave').value       = s.clave       || '';
+  document.getElementById('s-clave').disabled    = true;
+  document.getElementById('s-descripcion').value = s.descripcion || '';
+  document.getElementById('s-orden').value       = s.orden ?? 0;
+  document.getElementById('s-activo').checked    = s.activo;
+  modal.open('modal-subtipo');
+}
+
+async function guardarSubtipo() {
+  const nombre = document.getElementById('s-nombre').value.trim();
+  const clave  = document.getElementById('s-clave').value.trim().toUpperCase();
+  if (!nombre)                   { toast.warning('El nombre es obligatorio'); return; }
+  if (!st.editandoSubtipoId && !clave) { toast.warning('La clave es obligatoria'); return; }
+
+  const data = {
+    nombre,
+    descripcion: document.getElementById('s-descripcion').value.trim() || undefined,
+    orden:       parseInt(document.getElementById('s-orden').value)    || 0,
+    activo:      document.getElementById('s-activo').checked,
+  };
+  if (!st.editandoSubtipoId) data.clave = clave;
+
+  const btn = document.getElementById('btn-guardar-subtipo');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    if (st.editandoSubtipoId) {
+      await catalogosService.actualizarSubtipo(st.editandoSubtipoId, data);
+      toast.success('Subtipo actualizado');
+    } else {
+      await catalogosService.crearSubtipo(st.tipoActivo.id, data);
+      toast.success('Subtipo creado');
+    }
+    modal.close('modal-subtipo');
+    await cargarSubtipos();
+  } catch (err) {
+    toast.error(err.message || 'Error al guardar el subtipo');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar subtipo';
+  }
+}
+
+async function toggleSubtipo(id, activo) {
+  try {
+    await catalogosService.actualizarSubtipo(id, { activo });
+    st.subtipos = st.subtipos.map(s => s.id === id ? { ...s, activo } : s);
+    renderSubtipos();
+  } catch { toast.error('Error al cambiar estado'); }
+}
+
+function limpiarFormSubtipo() {
+  ['s-nombre','s-clave','s-descripcion'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('s-orden').value  = '0';
+  document.getElementById('s-activo').checked = true;
+}
+
+// ─── Modal Formulario ─────────────────────────────────────────────────────────
+function abrirModalFormulario() {
+  st.editandoFormId = null;
+  limpiarFormFormulario();
+  document.getElementById('modal-form-titulo').textContent = `Nuevo cuestionario — ${st.tipoActivo?.nombre}`;
+  modal.open('modal-formulario');
+}
+
+async function editarFormulario(id) {
+  try {
+    const f = await catalogosService.getFormulario(id);
+    st.editandoFormId = id;
+    document.getElementById('modal-form-titulo').textContent = 'Editar cuestionario';
+    document.getElementById('f-nombre').value      = f.nombre      || '';
+    document.getElementById('f-descripcion').value = f.descripcion || '';
+    document.getElementById('f-orden').value       = f.orden ?? 1;
+    document.getElementById('f-activo').checked    = f.activo;
+    document.getElementById('f-subtipo').value     = f.subtipo_id  || '';
+    document.getElementById('f-esquema').value     =
+      JSON.stringify(typeof f.esquema === 'string' ? JSON.parse(f.esquema) : f.esquema, null, 2);
+    document.getElementById('f-esquema-error').style.display = 'none';
+    modal.open('modal-formulario');
+  } catch { toast.error('Error al cargar el cuestionario'); }
+}
+
+async function guardarFormulario() {
+  const nombre   = document.getElementById('f-nombre').value.trim();
+  const esquemaRaw = document.getElementById('f-esquema').value.trim();
+  if (!nombre) { toast.warning('El nombre es obligatorio'); return; }
+
+  let esquema;
+  try {
+    esquema = JSON.parse(esquemaRaw);
+    document.getElementById('f-esquema-error').style.display = 'none';
+  } catch {
+    document.getElementById('f-esquema-error').style.display = 'block';
+    toast.error('El JSON del esquema tiene errores de sintaxis');
+    return;
+  }
+
+  const data = {
+    tipo_id:     st.tipoActivo.id,
+    subtipo_id:  document.getElementById('f-subtipo').value || null,
+    nombre,
+    descripcion: document.getElementById('f-descripcion').value.trim() || undefined,
+    orden:       parseInt(document.getElementById('f-orden').value) || 1,
+    activo:      document.getElementById('f-activo').checked,
+    esquema,
+  };
+
+  const btn = document.getElementById('btn-guardar-formulario');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    if (st.editandoFormId) {
+      await catalogosService.actualizarFormulario(st.editandoFormId, data);
+      toast.success('Cuestionario actualizado');
+    } else {
+      await catalogosService.crearFormulario(data);
+      toast.success('Cuestionario creado');
+    }
+    modal.close('modal-formulario');
+    await cargarFormularios();
+  } catch (err) {
+    toast.error(err.message || 'Error al guardar el cuestionario');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar cuestionario';
+  }
+}
+
+async function toggleFormulario(id, activo) {
+  try {
+    await catalogosService.actualizarFormulario(id, { activo });
+    st.formularios = st.formularios.map(f => f.id === id ? { ...f, activo } : f);
+    renderFormularios();
+  } catch { toast.error('Error al cambiar estado'); }
+}
+
+function limpiarFormFormulario() {
+  ['f-nombre','f-descripcion'].forEach(id => { const el=document.getElementById(id);if(el)el.value=''; });
+  document.getElementById('f-orden').value  = '1';
+  document.getElementById('f-activo').checked = true;
+  document.getElementById('f-subtipo').value  = '';
+  document.getElementById('f-esquema').value  = '';
+  document.getElementById('f-esquema-error').style.display = 'none';
+}
+
+function formatearJson() {
+  const ta = document.getElementById('f-esquema');
+  try {
+    ta.value = JSON.stringify(JSON.parse(ta.value), null, 2);
+    document.getElementById('f-esquema-error').style.display = 'none';
+  } catch {
+    document.getElementById('f-esquema-error').style.display = 'block';
+  }
+}
+
+function insertarEjemplo() {
+  const ejemplo = {
+    version: '1.0',
+    secciones: [
+      {
+        id: 'datos_generales',
+        titulo: 'Datos generales',
+        campos: [
+          { id: 'campo1', tipo: 'texto',    label: 'Campo de texto',    requerido: true,  maxLength: 100 },
+          { id: 'campo2', tipo: 'select',   label: 'Campo de selección', requerido: false,
+            opciones: ['Opción 1', 'Opción 2', 'Opción 3'] },
+          { id: 'campo3', tipo: 'boolean',  label: '¿Condición?',       requerido: false },
+          { id: 'campo4', tipo: 'textarea', label: 'Observaciones',     requerido: false, maxLength: 2000 }
+        ]
+      }
+    ]
+  };
+  document.getElementById('f-esquema').value = JSON.stringify(ejemplo, null, 2);
+  document.getElementById('f-esquema-error').style.display = 'none';
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function iconoEmoji(icono, clave) {
+  const mapaEmoji = {
+    'scale': '⚖️', 'heart-pulse': '❤️', 'truck': '🚛',
+    'file-text': '📄', 'folder': '📁',
+  };
+  return mapaEmoji[icono] || clave?.charAt(0) || '📋';
+}
+
+window.abrirDrawer       = abrirDrawer;
+window.cerrarDrawer      = cerrarDrawer;
+window.cambiarDrawerTab  = cambiarDrawerTab;
+window.editarTipo        = editarTipo;
+window.toggleTipo        = toggleTipo;
+window.abrirModalSubtipo = abrirModalSubtipo;
+window.editarSubtipo     = editarSubtipo;
+window.toggleSubtipo     = toggleSubtipo;
+window.abrirModalFormulario = abrirModalFormulario;
+window.editarFormulario  = editarFormulario;
+window.toggleFormulario  = toggleFormulario;
+window.formatearJson     = formatearJson;
+window.insertarEjemplo   = insertarEjemplo;
+</script>
+</body>
+</html>

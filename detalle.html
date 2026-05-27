@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Expediente — Kogu Asistencias</title>
+  <link rel="stylesheet" href="/styles/styles.css">
+  <style>
+    /* ── Layout split ── */
+    .detalle-grid{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start}
+    @media(max-width:900px){.detalle-grid{grid-template-columns:1fr}}
+
+    /* ── Hero del expediente ── */
+    .exp-hero{background:linear-gradient(135deg,#020617 0%,#0c1a3a 100%);border-radius:20px;padding:24px 28px;color:#fff;margin-bottom:16px}
+    .exp-hero__folio{font-family:ui-monospace,monospace;font-size:22px;font-weight:900;letter-spacing:.08em;color:#38bdf8}
+    .exp-hero__meta{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:10px}
+    .exp-hero__actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+    .btn-hero{padding:8px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s}
+    .btn-hero:hover{background:rgba(255,255,255,.16)}
+    .btn-hero.primary{background:#0891b2;border-color:#0891b2}
+    .btn-hero.danger{background:#dc2626;border-color:#dc2626}
+
+    /* ── Cards de datos ── */
+    .data-section{margin-bottom:14px}
+    .data-section__title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#94a3b8;margin-bottom:10px}
+    .data-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .data-field{display:flex;flex-direction:column;gap:2px}
+    .data-field__label{font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+    .data-field__value{font-size:13px;color:#0f172a;font-weight:600}
+    .data-field--full{grid-column:1/-1}
+
+    /* ── Panel derecho ── */
+    .panel-right{display:flex;flex-direction:column;gap:12px}
+
+    /* ── Cuestionario dinámico (modal) ── */
+    .form-section__title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#475569;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid #f1f5f9}
+    .checkbox-group{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+
+    /* ── SLA ── */
+    .sla-bar-wrap{height:6px;border-radius:999px;background:#e2e8f0;overflow:hidden;margin-top:6px}
+    .sla-bar-fill{height:100%;border-radius:999px;background:#0891b2;transition:width .4s}
+
+    /* ── Bitácora ── */
+    .bitacora-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9}
+    .bitacora-item:last-child{border-bottom:none}
+    .bitacora-item__icon{width:30px;height:30px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-top:2px}
+    .bitacora-item__content{flex:1;min-width:0}
+    .bitacora-item__header{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+    .bitacora-item__header strong{font-size:12px;color:#0f172a}
+    .bitacora-item__time{font-size:11px;color:#94a3b8;white-space:nowrap}
+    .bitacora-item__desc{font-size:12px;color:#475569;margin-top:2px;word-break:break-word}
+
+    /* ── Formularios en modales de edición ── */
+    .form-group{display:flex;flex-direction:column;gap:4px}
+    .form-label{font-size:12px;font-weight:600;color:#374151}
+    .form-control{height:36px;padding:0 12px;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;width:100%;box-sizing:border-box;font-family:inherit}
+    .form-control:focus{outline:none;border-color:#0891b2;box-shadow:0 0 0 3px rgba(8,145,178,.1)}
+    textarea.form-control{height:80px;padding:8px 12px;resize:vertical}
+
+    /* ── Abogado / Proveedor cards (modal asignación) ── */
+    .abogado-card{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;transition:all .15s;margin-bottom:8px}
+    .abogado-card:hover:not(.abogado-card--bloqueado){border-color:#0891b2;background:#ecfeff}
+    .abogado-card--bloqueado{opacity:.5;cursor:not-allowed;background:#f8fafc}
+    .abogado-card--por-vencer{border-color:#fde68a}
+    .abogado-avatar{width:38px;height:38px;border-radius:12px;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#1d4ed8;flex-shrink:0}
+    .carga-pill{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700}
+    .carga-pill--normal{background:#dcfce7;color:#166534}
+    .carga-pill--media {background:#fef9c3;color:#854d0e}
+    .carga-pill--alta  {background:#fee2e2;color:#991b1b}
+    .asig-segment{display:flex;gap:4px;background:#f1f5f9;border-radius:8px;padding:3px;margin-bottom:14px}
+    .asig-seg-btn{flex:1;padding:5px 10px;border-radius:6px;border:none;font-size:12px;font-weight:600;cursor:pointer;color:#64748b;background:none;transition:all .15s}
+    .asig-seg-btn.active{background:#fff;color:#0f172a;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+    .asig-grupo-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin:12px 0 8px}
+    .asig-vacio{text-align:center;padding:28px 16px;color:#94a3b8;font-size:13px}
+
+    /* ── Estatus buttons grid ── */
+    .estatus-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px}
+    .estatus-btn{padding:10px 8px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;font-size:11px;font-weight:700;text-align:center;transition:all .15s;color:#475569}
+    .estatus-btn:hover{border-color:#0891b2;color:#0891b2;background:#ecfeff}
+
+    /* ── Historial ── */
+    .historial-item{padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:12px}
+    .historial-item:last-child{border-bottom:none}
+
+    /* ── Docs ── */
+    .documento-item{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#f8fafc;border-radius:8px;margin-bottom:6px;font-size:12px}
+
+    /* ── Hidden helper ── */
+    .hidden{display:none!important}
+
+    /* ── Skeleton ── */
+    .skel{height:14px;background:#f1f5f9;border-radius:4px;animation:pulse 1.5s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar" id="sidebar-placeholder"></aside>
+
+  <!-- ── MAIN ── -->
+  <main class="main">
+
+    <!-- TOPBAR / NAVEGACIÓN -->
+    <div class="topbar" style="padding-bottom:0">
+      <div>
+        <div class="eyebrow">
+          <a href="/bandeja.html" style="color:#94a3b8;text-decoration:none">← Bandeja</a>
+          &nbsp;/&nbsp; Expediente
+        </div>
+        <h1 id="folio" style="font-family:ui-monospace,monospace;font-size:20px">—</h1>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div id="urgencia-badge"></div>
+        <div id="estatus-badge"></div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ── HERO ── -->
+      <div class="exp-hero">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#7dd3fc;font-weight:700" id="tipo-nombre">—</div>
+            <div class="exp-hero__folio" id="folio-hero">—</div>
+            <div class="exp-hero__meta">
+              <span style="font-size:12px;color:#94a3b8">
+                📅 <span id="created-at">—</span>
+              </span>
+              <span style="font-size:12px;color:#94a3b8">
+                👤 <span id="creado-por">—</span>
+              </span>
+              <span style="font-size:12px;color:#94a3b8">
+                📡 <span id="canal-origen">—</span>
+              </span>
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div id="urgencia-badge-hero"></div>
+            <div id="estatus-badge-hero" style="margin-top:6px"></div>
+          </div>
+        </div>
+        <div class="exp-hero__actions">
+          <button class="btn-hero primary" id="btn-cambiar-estatus">🔄 Cambiar estatus</button>
+          <button class="btn-hero" id="btn-asignar-abogado">👤 Asignar abogado</button>
+          <button class="btn-hero danger" id="btn-cerrar-expediente">✅ Cerrar expediente</button>
+        </div>
+      </div>
+
+      <!-- ── SPLIT LAYOUT ── -->
+      <div class="detalle-grid">
+
+        <!-- ── COLUMNA IZQUIERDA ── -->
+        <div>
+
+          <!-- Siniestro -->
+          <div class="card data-section">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <div class="data-section__title" style="margin-bottom:0">📋 Datos del siniestro</div>
+              <button class="btn btn-ghost btn-sm" id="btn-editar-siniestro">✏️ Completar / editar</button>
+            </div>
+            <div class="data-grid">
+              <div class="data-field">
+                <div class="data-field__label">Referencia siniestro</div>
+                <div class="data-field__value" id="siniestro-ref">—</div>
+              </div>
+              <div class="data-field">
+                <div class="data-field__label">Empresa / Aseguradora</div>
+                <div class="data-field__value" id="empresa-nombre">—</div>
+              </div>
+              <div class="data-field">
+                <div class="data-field__label">Convenio</div>
+                <div class="data-field__value" id="convenio-nombre">—</div>
+              </div>
+              <div class="data-field">
+                <div class="data-field__label">Subtipo</div>
+                <div class="data-field__value" id="subtipo-nombre">—</div>
+              </div>
+              <div class="data-field">
+                <div class="data-field__label">Ajustador</div>
+                <div class="data-field__value" id="ajustador-nombre">—</div>
+              </div>
+              <div class="data-field">
+                <div class="data-field__label">Tel. ajustador</div>
+                <div class="data-field__value" id="ajustador-tel">—</div>
+              </div>
+              <div class="data-field data-field--full">
+                <div class="data-field__label">Ubicación</div>
+                <div class="data-field__value" id="ubicacion">—</div>
+              </div>
+              <div class="data-field data-field--full">
+                <div class="data-field__label">Descripción inicial</div>
+                <div class="data-field__value" id="descripcion" style="font-weight:400;color:#475569">—</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Conductor -->
+          <div class="card data-section">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <div class="data-section__title" style="margin-bottom:0">🚗 Conductor / Asegurado</div>
+              <button class="btn btn-ghost btn-sm" id="btn-editar-conductor">✏️ Completar / editar</button>
+            </div>
+            <div class="data-grid">
+              <div class="data-field">
+                <div class="data-field__label">Nombre</div>
+                <div class="data-field__value" id="conductor-nombre">—</div>
+              </div>
+              <div class="data-field">
+                <div class="data-field__label">Teléfono</div>
+                <div class="data-field__value" id="conductor-tel">—</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Vehículo -->
+          <div class="card data-section" id="seccion-vehiculo">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <div class="data-section__title" style="margin-bottom:0">🚗 Vehículo</div>
+              <button class="btn btn-ghost btn-sm" id="btn-editar-vehiculo">✏️ Completar / editar</button>
+            </div>
+            <div id="vehiculo-datos">
+              <!-- se rellena por JS -->
+            </div>
+          </div>
+
+          <!-- Cuestionario dinámico -->
+          <div class="card data-section" id="seccion-cuestionario">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <div class="data-section__title" style="margin-bottom:0">📋 Cuestionario del caso</div>
+              <button class="btn btn-ghost btn-sm" id="btn-editar-cuestionario">✏️ Completar / editar</button>
+            </div>
+            <div id="cuestionario-respuestas">
+              <p style="color:#94a3b8;font-size:12px;text-align:center;padding:20px 0">Sin respuestas registradas</p>
+            </div>
+          </div>
+
+          <!-- Documentos -->
+          <div class="card data-section">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <div class="data-section__title" style="margin-bottom:0">📎 Documentos</div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <select id="tipo-doc-select" style="height:30px;padding:0 8px;border-radius:6px;border:1px solid #e2e8f0;font-size:11px">
+                  <option value="">— Tipo —</option>
+                  <option value="identificacion">Identificación</option>
+                  <option value="poliza">Póliza</option>
+                  <option value="evidencia">Evidencia / foto</option>
+                  <option value="acta">Acta MP</option>
+                  <option value="otro">Otro</option>
+                </select>
+                <button class="btn btn-ghost btn-sm" id="btn-subir-doc">📤 Subir</button>
+                <input type="file" id="input-file" style="display:none" accept=".pdf,.jpg,.jpeg,.png,.docx">
+              </div>
+            </div>
+            <div id="documentos-list">
+              <p style="color:#94a3b8;font-size:12px;text-align:center;padding:16px 0">Sin documentos adjuntos</p>
+            </div>
+          </div>
+
+          <!-- Cierre (oculto hasta que se cierre) -->
+          <div class="card hidden" id="seccion-cierre" style="border:1.5px solid #86efac">
+            <div class="data-section__title" style="color:#166534">✅ Expediente cerrado</div>
+            <div class="data-grid">
+              <div class="data-field">
+                <div class="data-field__label">Fecha de cierre</div>
+                <div class="data-field__value" id="fecha-cierre">—</div>
+              </div>
+              <div class="data-field">
+                <div class="data-field__label">Resultado</div>
+                <div class="data-field__value" id="resultado">—</div>
+              </div>
+              <div class="data-field data-field--full">
+                <div class="data-field__label">Notas de cierre</div>
+                <div class="data-field__value" id="notas-cierre" style="font-weight:400;color:#475569">—</div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /col izquierda -->
+
+        <!-- ── COLUMNA DERECHA ── -->
+        <div class="panel-right">
+
+          <!-- Estatus y SLA -->
+          <div class="card">
+            <div class="data-section__title">⏱ Tiempo activo / SLA</div>
+            <div style="font-size:26px;font-weight:900;color:#0f172a" id="sla-tiempo">—</div>
+            <div class="sla-bar-wrap">
+              <div class="sla-bar-fill" id="sla-bar" style="width:0%"></div>
+            </div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:4px">Tiempo desde apertura vs límite por urgencia</div>
+          </div>
+
+          <!-- Abogado asignado -->
+          <div class="card">
+            <div class="data-section__title">⚖️ Abogado asignado</div>
+
+            <!-- Sin abogado -->
+            <div id="sin-abogado">
+              <div style="text-align:center;padding:16px 0;color:#94a3b8;font-size:13px">
+                Sin abogado asignado
+              </div>
+              <button class="btn btn-primary" style="width:100%"
+                id="btn-asignar-abogado-2">Asignar abogado →</button>
+            </div>
+
+            <!-- Con abogado -->
+            <div id="con-abogado" class="hidden">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                <div style="width:42px;height:42px;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#1d4ed8;flex-shrink:0" id="abogado-avatar-letra">—</div>
+                <div>
+                  <div style="font-weight:700;font-size:14px" id="abogado-nombre">—</div>
+                  <div style="font-size:12px;color:#64748b" id="abogado-email">—</div>
+                  <div style="font-size:12px;color:#64748b" id="abogado-tel">—</div>
+                </div>
+              </div>
+              <button class="btn btn-ghost btn-sm" style="width:100%"
+                id="btn-reasignar">Reasignar abogado</button>
+            </div>
+          </div>
+
+          <!-- Historial de estatus -->
+          <div class="card">
+            <div class="data-section__title">🔄 Historial de estatus</div>
+            <div id="historial-list">
+              <p style="color:#94a3b8;font-size:12px">Sin cambios de estatus</p>
+            </div>
+          </div>
+
+          <!-- Bitácora -->
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <div class="data-section__title" style="margin-bottom:0">📒 Bitácora</div>
+            </div>
+
+            <div id="bitacora-list" style="max-height:320px;overflow-y:auto;margin-bottom:12px">
+              <p style="color:#94a3b8;font-size:12px;text-align:center;padding:16px">Cargando…</p>
+            </div>
+
+            <!-- Agregar comentario -->
+            <div style="border-top:1px solid #f1f5f9;padding-top:12px">
+              <textarea id="nuevo-comentario" rows="2"
+                style="width:100%;resize:none;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:12px;font-family:inherit;box-sizing:border-box"
+                placeholder="Agrega un comentario al expediente…"></textarea>
+              <button class="btn btn-primary btn-sm" style="margin-top:6px;width:100%"
+                id="btn-agregar-comentario">Agregar comentario</button>
+            </div>
+          </div>
+
+        </div><!-- /col derecha -->
+      </div><!-- /detalle-grid -->
+
+    </div><!-- /content -->
+  </main>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     MODALES
+══════════════════════════════════════════════════════════════════════════ -->
+
+<!-- Modal: Cambiar estatus -->
+<div class="modal-backdrop" id="modal-estatus" style="display:none">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-header">
+      <h3 class="modal-title">Cambiar estatus del expediente</h3>
+      <button class="modal-close" onclick="modal.close('modal-estatus')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:#64748b;margin-bottom:14px">
+        Selecciona el nuevo estatus operativo:
+      </p>
+      <div class="estatus-grid">
+        <button class="estatus-btn" data-nuevo-estatus="abierto">📂 Abierto</button>
+        <button class="estatus-btn" data-nuevo-estatus="asignado">👤 Asignado</button>
+        <button class="estatus-btn" data-nuevo-estatus="en_proceso">⚙️ En proceso</button>
+        <button class="estatus-btn" data-nuevo-estatus="pendiente_doc">📄 Pend. documentos</button>
+        <button class="estatus-btn" data-nuevo-estatus="pendiente_pago">💳 Pend. pago</button>
+        <button class="estatus-btn" data-nuevo-estatus="archivado">🗃️ Archivado</button>
+      </div>
+      <div style="margin-top:16px">
+        <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:6px">
+          Comentario (opcional)
+        </label>
+        <textarea id="comentario-estatus" rows="2"
+          style="width:100%;resize:none;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;box-sizing:border-box"
+          placeholder="Motivo del cambio…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:14px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-estatus')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Datos del vehículo -->
+<div class="modal-backdrop" id="modal-vehiculo" style="display:none">
+  <div class="modal-box" style="max-width:560px">
+    <div class="modal-header">
+      <h3 class="modal-title">🚗 Datos del vehículo</h3>
+      <button class="modal-close" onclick="modal.close('modal-vehiculo')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="form-group">
+          <label class="form-label">Marca</label>
+          <input type="text" id="veh-marca" class="form-control" placeholder="Toyota, Honda, Nissan…" maxlength="50">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Modelo</label>
+          <input type="text" id="veh-modelo" class="form-control" placeholder="Corolla, Civic, Versa…" maxlength="80">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Año</label>
+          <input type="number" id="veh-anio" class="form-control" placeholder="2020" min="1900" max="2100">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Color</label>
+          <input type="text" id="veh-color" class="form-control" placeholder="Blanco, Negro…" maxlength="30">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Placas</label>
+          <input type="text" id="veh-placas" class="form-control" placeholder="ABC1234" maxlength="10"
+                 oninput="this.value=this.value.toUpperCase()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Número de serie (VIN)</label>
+          <input type="text" id="veh-vin" class="form-control" placeholder="17 caracteres" maxlength="17"
+                 oninput="this.value=this.value.toUpperCase()">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:14px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-vehiculo')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarVehiculo()">Guardar vehículo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Editar datos del siniestro -->
+<div class="modal-backdrop" id="modal-editar-siniestro" style="display:none">
+  <div class="modal-box" style="max-width:600px">
+    <div class="modal-header">
+      <h3 class="modal-title">📋 Editar datos del siniestro</h3>
+      <button class="modal-close" onclick="modal.close('modal-editar-siniestro')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="form-group">
+          <label class="form-label">Referencia siniestro</label>
+          <input type="text" id="edit-siniestro-ref" class="form-control" placeholder="Núm. siniestro aseguradora" maxlength="100">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Empresa / Aseguradora</label>
+          <select id="edit-empresa-id" class="form-control">
+            <option value="">— Sin empresa —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Convenio</label>
+          <select id="edit-convenio-id" class="form-control">
+            <option value="">— Sin convenio —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Subtipo</label>
+          <select id="edit-subtipo-id" class="form-control">
+            <option value="">— Sin subtipo —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nombre del ajustador</label>
+          <input type="text" id="edit-ajustador-nombre" class="form-control" placeholder="Nombre" maxlength="150">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Teléfono del ajustador</label>
+          <input type="tel" id="edit-ajustador-tel" class="form-control" placeholder="55 1234 5678" maxlength="20">
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Ubicación del evento</label>
+          <input type="text" id="edit-ubicacion" class="form-control" placeholder="Calle, colonia, municipio…" maxlength="500">
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Descripción inicial</label>
+          <textarea id="edit-descripcion" class="form-control" rows="3" placeholder="Descripción del caso…"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:14px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-editar-siniestro')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarSiniestro()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Editar conductor / asegurado -->
+<div class="modal-backdrop" id="modal-editar-conductor" style="display:none">
+  <div class="modal-box" style="max-width:500px">
+    <div class="modal-header">
+      <h3 class="modal-title">🚗 Editar conductor / asegurado</h3>
+      <button class="modal-close" onclick="modal.close('modal-editar-conductor')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Nombre completo <span style="color:var(--danger)">*</span></label>
+          <input type="text" id="edit-conductor-nombre" class="form-control" placeholder="Nombre completo" maxlength="150">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Teléfono de contacto <span style="color:var(--danger)">*</span></label>
+          <input type="tel" id="edit-conductor-tel" class="form-control" placeholder="10 dígitos" maxlength="20">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:14px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-editar-conductor')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarConductor()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Asignar proveedor / abogado -->
+<div class="modal-backdrop" id="modal-abogado" style="display:none">
+  <div class="modal-box" style="max-width:560px">
+    <div class="modal-header">
+      <h3 class="modal-title">Asignar proveedor al expediente</h3>
+      <button class="modal-close" onclick="modal.close('modal-abogado')">&times;</button>
+    </div>
+    <div class="modal-body" style="padding-top:14px">
+
+      <!-- Buscador -->
+      <div style="position:relative;margin-bottom:12px">
+        <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;color:#94a3b8">🔍</span>
+        <input type="text" id="asig-buscar"
+               placeholder="Buscar por nombre…"
+               style="width:100%;height:36px;padding:0 12px 0 34px;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;box-sizing:border-box"
+               oninput="filtrarProveedoresModal(this.value)">
+      </div>
+
+      <!-- Segmento Especializados / Todos -->
+      <div class="asig-segment" id="asig-segment">
+        <button class="asig-seg-btn active" id="seg-btn-esp"
+                onclick="cambiarSegmento('especializados')">⚖️ Especializados en este servicio</button>
+        <button class="asig-seg-btn" id="seg-btn-todos"
+                onclick="cambiarSegmento('todos')">📋 Todos los proveedores</button>
+      </div>
+
+      <!-- Lista -->
+      <div id="lista-abogados" style="max-height:380px;overflow-y:auto;padding-right:2px">
+        <div style="text-align:center;padding:32px;color:#94a3b8">Cargando proveedores…</div>
+      </div>
+
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:14px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-abogado')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Cerrar expediente -->
+<div class="modal-backdrop" id="modal-cierre" style="display:none">
+  <div class="modal-box" style="max-width:480px">
+    <div class="modal-header">
+      <h3 class="modal-title">Cerrar expediente</h3>
+      <button class="modal-close" onclick="modal.close('modal-cierre')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:12px;color:#92400e;margin-bottom:16px">
+        ⚠️ Esta acción cierra el expediente de forma administrativa. No se puede revertir fácilmente.
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:6px">
+          Motivo de cierre <span style="color:#dc2626">*</span>
+        </label>
+        <select id="motivo_cierre_id"
+          style="height:38px;width:100%;padding:0 12px;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;background:#fff">
+          <option value="">— Seleccionar motivo —</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:6px">Resultado</label>
+        <input type="text" id="input-resultado"
+          style="height:38px;width:100%;padding:0 12px;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;box-sizing:border-box"
+          placeholder="Ej: Resolución favorable para el asegurado">
+      </div>
+      <div class="form-group">
+        <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:6px">Notas de cierre</label>
+        <textarea id="notas_cierre" rows="3"
+          style="width:100%;resize:none;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;box-sizing:border-box"
+          placeholder="Observaciones finales del caso…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:14px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-cierre')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-confirmar-cierre">Cerrar expediente</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL: Cuestionario dinámico -->
+<div class="modal-backdrop" id="modal-cuestionario" style="display:none">
+  <div class="modal-box" style="max-width:700px">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-cuestionario-titulo">Cuestionario del caso</h3>
+      <button class="modal-close" onclick="modal.close('modal-cuestionario')">&times;</button>
+    </div>
+    <div class="modal-body" style="max-height:65vh;overflow-y:auto">
+      <div id="modal-cuestionario-form">
+        <div style="text-align:center;padding:32px;color:#94a3b8">Cargando formulario…</div>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:14px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-cuestionario')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-cuestionario">Guardar respuestas</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SCRIPTS
+══════════════════════════════════════════════════════════════════════════ -->
+<script src="/js/config.js"></script>
+<script src="/js/services/api.js"></script>
+<script src="/js/services/auth.service.js"></script>
+<script src="/js/services/asistencias.service.js"></script>
+<script src="/js/services/catalogos.service.js"></script>
+<script src="/js/services/proveedores.service.js"></script>
+<script src="/js/utils/format.js"></script>
+<script src="/js/utils/toast.js"></script>
+<script src="/js/utils/modal.js"></script>
+<script src="/js/components/sidebar.js"></script>
+<script src="/js/utils/auth.guard.js"></script>
+<script src="/js/pages/detalle.js"></script>
+</body>
+</html>

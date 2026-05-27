@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Usuarios — Kogu Asistencias</title>
+  <link rel="stylesheet" href="/styles/styles.css">
+  <style>
+    .role-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+    .role-admin{background:#fde68a;color:#92400e}
+    .role-supervisor{background:#dbeafe;color:#1e40af}
+    .role-operador{background:#dcfce7;color:#166534}
+    .role-abogado{background:#ede9fe;color:#5b21b6}
+    .role-cabina{background:#e0f2fe;color:#075985}
+    .user-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;background:#dbeafe;color:#1d4ed8;flex-shrink:0}
+    .filters-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+    .filters-bar input,.filters-bar select{height:36px;padding:0 12px;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;background:#fff}
+    .filters-bar input{min-width:220px}
+    .status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+    .dot-active{background:#16a34a}
+    .dot-inactive{background:#94a3b8}
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar" id="sidebar-placeholder"></aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="eyebrow">Administración</div>
+        <h1>Gestión de usuarios</h1>
+        <p>Control de acceso y roles del sistema</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button class="btn btn-primary" id="btn-nuevo-usuario">➕ Nuevo usuario</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- FILTROS -->
+      <div class="filters-bar">
+        <input type="text" id="filtro-buscar" placeholder="🔍  Buscar por nombre o email…">
+        <select id="filtro-rol">
+          <option value="">Todos los roles</option>
+          <option value="admin">Administrador</option>
+          <option value="supervisor">Supervisor</option>
+          <option value="operador">Operador</option>
+          <option value="abogado">Abogado</option>
+          <option value="cabina">Cabina</option>
+        </select>
+        <select id="filtro-activo">
+          <option value="">Todos</option>
+          <option value="true">Activos</option>
+          <option value="false">Inactivos</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" id="btn-limpiar">Limpiar</button>
+        <span id="contador-usuarios" style="margin-left:auto;font-size:13px;color:#64748b"></span>
+      </div>
+
+      <!-- TABLA -->
+      <div class="table-wrap">
+        <table style="width:100%">
+          <thead>
+            <tr>
+              <th>Usuario</th>
+              <th>Email</th>
+              <th>Teléfono</th>
+              <th>Roles</th>
+              <th>Estado</th>
+              <th>Alta</th>
+              <th style="text-align:center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-usuarios-body"></tbody>
+        </table>
+      </div>
+
+      <!-- PAGINACIÓN -->
+      <div id="paginacion" style="display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:14px;font-size:13px"></div>
+
+    </div><!-- /content -->
+  </main>
+</div>
+
+<!-- MODAL: Crear / Editar usuario -->
+<div class="modal-backdrop" id="modal-usuario" style="display:none">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-usuario-titulo">Nuevo usuario</h3>
+      <button class="modal-close" onclick="modal.close('modal-usuario')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="form-usuario" autocomplete="off">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nombre completo <span style="color:#dc2626">*</span></label>
+            <input type="text" id="u-nombre" class="form-control" maxlength="150" required>
+          </div>
+          <div class="form-group">
+            <label>Correo electrónico <span style="color:#dc2626">*</span></label>
+            <input type="email" id="u-email" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Teléfono</label>
+            <input type="text" id="u-telefono" class="form-control" maxlength="20">
+          </div>
+          <div class="form-group" id="grupo-password">
+            <label>Contraseña <span style="color:#dc2626">*</span></label>
+            <input type="password" id="u-password" class="form-control" minlength="8" autocomplete="new-password">
+          </div>
+          <div class="form-group form-group--full">
+            <label>Roles <span style="color:#dc2626">*</span></label>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px" id="roles-checkboxes">
+              <label class="checkbox-item"><input type="checkbox" name="roles" value="admin">     Administrador</label>
+              <label class="checkbox-item"><input type="checkbox" name="roles" value="supervisor"> Supervisor</label>
+              <label class="checkbox-item"><input type="checkbox" name="roles" value="operador">   Operador</label>
+              <label class="checkbox-item"><input type="checkbox" name="roles" value="abogado">    Abogado</label>
+              <label class="checkbox-item"><input type="checkbox" name="roles" value="cabina">     Cabina</label>
+            </div>
+          </div>
+          <div class="form-group form-group--full" id="grupo-activo" style="display:none">
+            <label class="checkbox-item">
+              <input type="checkbox" id="u-activo" checked> Usuario activo
+            </label>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-usuario')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-usuario">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Reset password -->
+<div class="modal-backdrop" id="modal-reset-password" style="display:none">
+  <div class="modal-box" style="max-width:400px">
+    <div class="modal-header">
+      <h3 class="modal-title">Restablecer contraseña</h3>
+      <button class="modal-close" onclick="modal.close('modal-reset-password')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:#64748b;font-size:13px;margin-bottom:16px">
+        Ingresa la nueva contraseña para <strong id="reset-user-nombre"></strong>
+      </p>
+      <div class="form-group">
+        <label>Nueva contraseña</label>
+        <input type="password" id="reset-password" class="form-control" minlength="8" placeholder="Mínimo 8 caracteres">
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-reset-password')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-confirmar-reset">Restablecer</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/services/api.js"></script>
+<script src="/js/services/auth.service.js"></script>
+<script src="/js/utils/format.js"></script>
+<script src="/js/utils/toast.js"></script>
+<script src="/js/utils/modal.js"></script>
+<script src="/js/utils/table.js"></script>
+<script src="/js/components/sidebar.js"></script>
+<script src="/js/utils/auth.guard.js"></script>
+<script src="/js/services/usuarios.service.js"></script>
+<script src="/js/pages/usuarios.js"></script>
+</body>
+</html>

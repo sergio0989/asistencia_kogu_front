@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Proveedores — Kogu Asistencias</title>
+  <link rel="stylesheet" href="/styles/styles.css">
+  <style>
+    /* ── Filtros ── */
+    .filters-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+    .filters-bar input,.filters-bar select{height:36px;padding:0 12px;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;background:#fff}
+    .filters-bar input{min-width:220px}
+
+    /* ── Toggle de vista ── */
+    .view-toggle{display:flex;gap:4px;background:#f1f5f9;border-radius:8px;padding:3px}
+    .view-toggle button{border:none;background:none;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;color:#64748b;transition:all .15s}
+    .view-toggle button.active{background:#fff;color:#0f172a;font-weight:600;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+
+    /* ── Grid tarjetas ── */
+    .grid-proveedores{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px}
+    .prov-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:20px;display:flex;gap:14px;align-items:flex-start;transition:box-shadow .15s;cursor:pointer}
+    .prov-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.08)}
+    .prov-avatar{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;flex-shrink:0}
+    .prov-avatar.vigente    {background:#dcfce7;color:#166534}
+    .prov-avatar.por_vencer {background:#fef9c3;color:#854d0e}
+    .prov-avatar.vencido    {background:#fee2e2;color:#991b1b}
+    .prov-avatar.incompleto {background:#f1f5f9;color:#475569}
+    .prov-avatar.suspendido {background:#fae8ff;color:#7e22ce}
+    .prov-info{flex:1;min-width:0}
+    .prov-nombre{font-size:14px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .prov-sub{font-size:12px;color:#64748b;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+    /* ── Badge expediente ── */
+    .badge-exp{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;flex-shrink:0}
+    .badge-exp.vigente    {background:#dcfce7;color:#166534}
+    .badge-exp.por_vencer {background:#fef9c3;color:#854d0e}
+    .badge-exp.vencido    {background:#fee2e2;color:#991b1b}
+    .badge-exp.incompleto {background:#f1f5f9;color:#475569}
+    .badge-exp.suspendido {background:#fae8ff;color:#7e22ce}
+
+    /* ── Stats ── */
+    .prov-stats{display:flex;gap:0;margin-top:12px;border:1px solid #f1f5f9;border-radius:10px;overflow:hidden}
+    .prov-stat{flex:1;text-align:center;padding:8px 4px;border-right:1px solid #f1f5f9}
+    .prov-stat:last-child{border-right:none}
+    .prov-stat__num{font-size:17px;font-weight:800;color:#0f172a;line-height:1}
+    .prov-stat__label{font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-top:2px;white-space:nowrap}
+    .prov-stat--activo   .prov-stat__num{color:#0891b2}
+    .prov-stat--vencer   .prov-stat__num{color:#d97706}
+    .prov-stat--critico  .prov-stat__num{color:#dc2626}
+
+    /* ── Carga bar ── */
+    .carga-bar{height:5px;border-radius:999px;background:#f1f5f9;overflow:hidden;margin-top:10px;width:100%}
+    .carga-fill{height:100%;border-radius:999px;background:#0891b2;transition:width .3s}
+    .carga-fill.alta{background:#dc2626}
+    .carga-fill.media{background:#d97706}
+
+    /* ── Tabla ── */
+    .prov-logo{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0}
+
+    /* ── Panel lateral ── */
+    .panel-overlay{position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:200;display:none}
+    .panel-overlay.open{display:block}
+    .panel{position:fixed;top:0;right:0;bottom:0;width:580px;max-width:100vw;background:#fff;box-shadow:-4px 0 30px rgba(0,0,0,.12);z-index:201;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1)}
+    .panel.open{transform:translateX(0)}
+    .panel-header{padding:20px 24px 16px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+    .panel-header h2{font-size:16px;font-weight:700;color:#0f172a;margin:0}
+    .panel-body{flex:1;overflow-y:auto;padding:0}
+    .panel-footer{padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px;flex-shrink:0}
+
+    /* ── Tabs del panel ── */
+    .panel-tabs{display:flex;border-bottom:2px solid #e2e8f0;padding:0 24px;gap:0;flex-shrink:0;background:#fff;position:sticky;top:0;z-index:1;overflow-x:auto}
+    .panel-tab{padding:10px 13px;font-size:12px;font-weight:500;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap}
+    .panel-tab.active{color:#0891b2;border-bottom-color:#0891b2;font-weight:600}
+
+    /* ── Secciones del formulario ── */
+    .f-section{padding:20px 24px;border-bottom:1px solid #f1f5f9}
+    .f-section:last-child{border-bottom:none}
+    .f-section__title{font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px}
+    .f-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .f-grid.full{grid-template-columns:1fr}
+    .f-group{display:flex;flex-direction:column;gap:4px}
+    .f-group label{font-size:12px;font-weight:600;color:#374151}
+    .f-group input,.f-group select,.f-group textarea{padding:8px 12px;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;font-family:inherit;background:#fff;transition:border .15s}
+    .f-group input:focus,.f-group select:focus,.f-group textarea:focus{outline:none;border-color:#0891b2;box-shadow:0 0 0 3px rgba(8,145,178,.1)}
+    .f-group textarea{resize:vertical;min-height:72px}
+    .f-span2{grid-column:1/-1}
+
+    /* ── Servicios ── */
+    .tipo-block{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:10px}
+    .tipo-block__header{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f8fafc;cursor:pointer;user-select:none}
+    .tipo-block__header:hover{background:#f1f5f9}
+    .tipo-block__title{font-size:13px;font-weight:600;color:#0f172a}
+    .tipo-block__body{padding:10px 14px 14px;display:none;gap:8px;flex-wrap:wrap}
+    .tipo-block__body.open{display:flex}
+    .subtipo-chip{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;font-size:12px;font-weight:500;color:#374151;transition:all .12s}
+    .subtipo-chip:hover{border-color:#0891b2;background:#f0fdff}
+    .subtipo-chip.selected{border-color:#0891b2;background:#e0f2fe;color:#0369a1;font-weight:600}
+    .subtipo-chip input[type=checkbox]{display:none}
+    .check-icon{font-size:10px;display:none}
+    .subtipo-chip.selected .check-icon{display:inline}
+
+    /* ── Zonas ── */
+    .zona-row{display:grid;grid-template-columns:1fr 1fr 70px auto;gap:8px;align-items:center;margin-bottom:8px}
+    .zona-row input{padding:6px 10px;border-radius:6px;border:1px solid #e2e8f0;font-size:12px;font-family:inherit}
+    .zona-row input:focus{outline:none;border-color:#0891b2}
+    .btn-del-zona{width:28px;height:28px;border-radius:6px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .btn-del-zona:hover{background:#fecaca}
+
+    /* ── Documentos ── */
+    .doc-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f1f5f9}
+    .doc-icon{width:32px;height:32px;border-radius:8px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+    .doc-nombre{font-size:13px;font-weight:500;color:#0f172a}
+    .doc-meta{font-size:11px;color:#94a3b8;margin-top:1px}
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar" id="sidebar-placeholder"></aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="eyebrow">Catálogos</div>
+        <h1>Proveedores</h1>
+        <p>Abogados y proveedores de asistencia — expediente, cobertura y carga operativa</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button class="btn btn-primary" onclick="abrirPanel()">+ Nuevo proveedor</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- FILTROS + toggle de vista -->
+      <div class="filters-bar">
+        <input type="text" id="filtro-buscar" placeholder="🔍  Buscar nombre, RFC, email…">
+        <select id="filtro-estatus">
+          <option value="">Todos los expedientes</option>
+          <option value="vigente">Vigente</option>
+          <option value="por_vencer">Por vencer</option>
+          <option value="vencido">Vencido</option>
+          <option value="incompleto">Incompleto</option>
+          <option value="suspendido">Suspendido</option>
+        </select>
+        <select id="filtro-activo">
+          <option value="">Activos e inactivos</option>
+          <option value="true">Solo activos</option>
+          <option value="false">Solo inactivos</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" id="btn-limpiar">Limpiar</button>
+        <span id="contador-proveedores" style="font-size:13px;color:#64748b"></span>
+        <div class="view-toggle" style="margin-left:auto">
+          <button id="btn-vista-tarjetas" class="active" onclick="cambiarVista('tarjetas')">⚖️ Tarjetas</button>
+          <button id="btn-vista-tabla"    onclick="cambiarVista('tabla')">☰ Tabla</button>
+        </div>
+      </div>
+
+      <!-- VISTA TARJETAS -->
+      <div id="vista-tarjetas">
+        <div id="grid-proveedores" class="grid-proveedores">
+          <div style="grid-column:1/-1;text-align:center;padding:40px;color:#94a3b8">Cargando proveedores…</div>
+        </div>
+      </div>
+
+      <!-- VISTA TABLA -->
+      <div id="vista-tabla" style="display:none">
+        <div class="table-wrap">
+          <table style="width:100%">
+            <thead>
+              <tr>
+                <th>Proveedor</th>
+                <th>Servicios</th>
+                <th style="text-align:center">Expediente</th>
+                <th>Vencimiento</th>
+                <th style="text-align:center">Casos activos</th>
+                <th>Contacto</th>
+                <th style="text-align:center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-proveedores-body"></tbody>
+          </table>
+        </div>
+        <div id="paginacion-proveedores" style="display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:14px;font-size:13px"></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- ── Overlay + Panel lateral ─────────────────────────── -->
+<div class="panel-overlay" id="panel-overlay" onclick="cerrarPanel()"></div>
+<div class="panel" id="panel-proveedor">
+  <div class="panel-header">
+    <h2 id="panel-titulo">Nuevo proveedor</h2>
+    <button class="btn btn-ghost btn-sm" onclick="cerrarPanel()">✕ Cerrar</button>
+  </div>
+
+  <div class="panel-tabs" id="panel-tabs">
+    <div class="panel-tab active" data-tab="generales"  onclick="switchTab('generales')">Generales</div>
+    <div class="panel-tab"        data-tab="servicios"  onclick="switchTab('servicios')">Servicios</div>
+    <div class="panel-tab"        data-tab="zonas"      onclick="switchTab('zonas')">Zonas</div>
+    <div class="panel-tab"        data-tab="expediente" onclick="switchTab('expediente')">Expediente</div>
+    <div class="panel-tab"        data-tab="financiero" onclick="switchTab('financiero')">Financiero</div>
+  </div>
+
+  <div class="panel-body">
+
+    <!-- Tab: Generales -->
+    <div id="tab-generales" class="tab-content">
+      <div class="f-section">
+        <div class="f-section__title">Identificación</div>
+        <div class="f-grid">
+          <div class="f-group f-span2">
+            <label>Nombre / Alias operativo *</label>
+            <input type="text" id="f-nombre" placeholder="Lic. Nombre Apellidos">
+          </div>
+          <div class="f-group">
+            <label>Razón social</label>
+            <input type="text" id="f-razon-social" placeholder="Despacho o nombre legal">
+          </div>
+          <div class="f-group">
+            <label>Tipo de persona</label>
+            <select id="f-tipo-persona">
+              <option value="fisica">Física</option>
+              <option value="moral">Moral</option>
+            </select>
+          </div>
+          <div class="f-group">
+            <label>RFC</label>
+            <input type="text" id="f-rfc" placeholder="XXXX000000XX0" maxlength="13">
+          </div>
+          <div class="f-group">
+            <label>Estatus del proveedor</label>
+            <select id="f-activo">
+              <option value="true">Activo</option>
+              <option value="false">Inactivo</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="f-section">
+        <div class="f-section__title">Contacto</div>
+        <div class="f-grid">
+          <div class="f-group f-span2">
+            <label>Correo electrónico</label>
+            <input type="email" id="f-email" placeholder="correo@ejemplo.com">
+          </div>
+          <div class="f-group">
+            <label>Teléfono</label>
+            <input type="tel" id="f-telefono" placeholder="55 1234 5678">
+          </div>
+          <div class="f-group">
+            <label>Teléfono emergencias (24/7)</label>
+            <input type="tel" id="f-tel-emergencias" placeholder="55 1234 5678">
+          </div>
+        </div>
+      </div>
+      <div class="f-section">
+        <div class="f-section__title">Notas internas</div>
+        <div class="f-grid full">
+          <div class="f-group">
+            <label>Notas (visibles solo para el equipo)</label>
+            <textarea id="f-notas" placeholder="Especialidades, disponibilidad, observaciones…"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Servicios -->
+    <div id="tab-servicios" class="tab-content" style="display:none">
+      <div class="f-section">
+        <div class="f-section__title">Tipos y subtipos de asistencia que puede atender</div>
+        <p style="font-size:12px;color:#64748b;margin:0 0 16px">Marca el tipo completo para indicar que atiende todos sus subtipos, o selecciona subtipos específicos.</p>
+        <div id="servicios-container">
+          <div style="text-align:center;color:#94a3b8;padding:20px">Cargando tipos…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Zonas -->
+    <div id="tab-zonas" class="tab-content" style="display:none">
+      <div class="f-section">
+        <div class="f-section__title">Zonas de cobertura geográfica</div>
+        <p style="font-size:12px;color:#64748b;margin:0 0 16px">Define los estados y municipios donde puede operar. Deja municipio en blanco para cubrir todo el estado.</p>
+        <div id="zonas-container"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="agregarFilaZona()">+ Agregar zona</button>
+      </div>
+    </div>
+
+    <!-- Tab: Expediente -->
+    <div id="tab-expediente" class="tab-content" style="display:none">
+      <div class="f-section">
+        <div class="f-section__title">Expediente del proveedor</div>
+        <div class="f-grid">
+          <div class="f-group">
+            <label>Número de expediente</label>
+            <input type="text" id="f-num-exp" placeholder="PROV-LEG-0001">
+          </div>
+          <div class="f-group">
+            <label>Estatus del expediente</label>
+            <select id="f-estatus-exp">
+              <option value="incompleto">Incompleto</option>
+              <option value="vigente">Vigente</option>
+              <option value="por_vencer">Por vencer</option>
+              <option value="vencido">Vencido</option>
+              <option value="suspendido">Suspendido</option>
+            </select>
+          </div>
+          <div class="f-group">
+            <label>Fecha de alta</label>
+            <input type="date" id="f-fecha-alta">
+          </div>
+          <div class="f-group">
+            <label>Fecha de vencimiento</label>
+            <input type="date" id="f-fecha-venc">
+          </div>
+        </div>
+      </div>
+      <div class="f-section" id="seccion-documentos" style="display:none">
+        <div class="f-section__title" style="display:flex;justify-content:space-between;align-items:center">
+          <span>Documentos del expediente</span>
+          <label class="btn btn-ghost btn-sm" style="cursor:pointer">
+            📎 Subir documento
+            <input type="file" id="input-doc" style="display:none" onchange="subirDocumentoExp(this)">
+          </label>
+        </div>
+        <div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <select id="select-tipo-doc" style="height:32px;padding:0 10px;border-radius:6px;border:1px solid #e2e8f0;font-size:12px">
+            <option value="identificacion">Identificación</option>
+            <option value="cedula_profesional">Cédula profesional</option>
+            <option value="comprobante_domicilio">Comprobante de domicilio</option>
+            <option value="contrato">Contrato</option>
+            <option value="acta_constitutiva">Acta constitutiva</option>
+            <option value="poder_notarial">Poder notarial</option>
+            <option value="constancia_situacion_fiscal">Constancia situación fiscal</option>
+            <option value="poliza_responsabilidad">Póliza de responsabilidad</option>
+            <option value="otro">Otro</option>
+          </select>
+          <input type="date" id="input-doc-venc"
+                 style="height:32px;padding:0 10px;border-radius:6px;border:1px solid #e2e8f0;font-size:12px"
+                 title="Vencimiento del documento (opcional)">
+        </div>
+        <div id="lista-docs-exp">
+          <div style="text-align:center;color:#94a3b8;padding:16px;font-size:13px">Sin documentos cargados</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Financiero -->
+    <div id="tab-financiero" class="tab-content" style="display:none">
+      <div class="f-section">
+        <div class="f-section__title">Tarifas</div>
+        <div class="f-grid">
+          <div class="f-group">
+            <label>Tipo de tarifa</label>
+            <select id="f-tipo-tarifa">
+              <option value="">— Seleccionar —</option>
+              <option value="servicio">Por servicio</option>
+              <option value="hora">Por hora</option>
+              <option value="fijo">Fijo por caso</option>
+              <option value="mixto">Mixto</option>
+            </select>
+          </div>
+          <div class="f-group">
+            <label>Moneda</label>
+            <select id="f-moneda">
+              <option value="MXN">MXN — Peso mexicano</option>
+              <option value="USD">USD — Dólar</option>
+            </select>
+          </div>
+          <div class="f-group">
+            <label>Tarifa base</label>
+            <input type="number" id="f-tarifa-base" min="0" step="0.01" placeholder="0.00">
+          </div>
+          <div class="f-group">
+            <label>Tarifa por hora (si aplica)</label>
+            <input type="number" id="f-tarifa-hora" min="0" step="0.01" placeholder="0.00">
+          </div>
+          <div class="f-group f-span2" style="flex-direction:row;align-items:center;gap:10px;margin-top:4px">
+            <input type="checkbox" id="f-viaticos" style="width:16px;height:16px;cursor:pointer">
+            <label for="f-viaticos" style="font-size:13px;font-weight:500;color:#374151;cursor:pointer">Incluye viáticos</label>
+          </div>
+          <div class="f-group f-span2">
+            <label>Notas de tarifa</label>
+            <textarea id="f-notas-tarifa" placeholder="Condiciones especiales, descuentos, acuerdos…"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="f-section">
+        <div class="f-section__title">Datos bancarios</div>
+        <div class="f-grid">
+          <div class="f-group">
+            <label>Banco</label>
+            <input type="text" id="f-banco" placeholder="BBVA, Santander, HSBC…">
+          </div>
+          <div class="f-group">
+            <label>Tipo de cuenta</label>
+            <select id="f-tipo-cuenta">
+              <option value="">— Seleccionar —</option>
+              <option value="ahorro">Ahorro</option>
+              <option value="cheques">Cheques</option>
+            </select>
+          </div>
+          <div class="f-group f-span2">
+            <label>CLABE interbancaria (18 dígitos)</label>
+            <input type="text" id="f-clabe" placeholder="000000000000000000" maxlength="18">
+          </div>
+          <div class="f-group">
+            <label>Número de cuenta</label>
+            <input type="text" id="f-cuenta" placeholder="Opcional">
+          </div>
+          <div class="f-group">
+            <label>Titular de la cuenta</label>
+            <input type="text" id="f-titular" placeholder="Nombre completo o razón social">
+          </div>
+          <div class="f-group">
+            <label>Uso CFDI</label>
+            <select id="f-uso-cfdi">
+              <option value="">— Seleccionar —</option>
+              <option value="P01">P01 — Por definir</option>
+              <option value="G01">G01 — Adquisición de mercancías</option>
+              <option value="G03">G03 — Gastos en general</option>
+              <option value="I01">I01 — Construcciones</option>
+            </select>
+          </div>
+          <div class="f-group">
+            <label>Régimen fiscal</label>
+            <select id="f-regimen-fiscal">
+              <option value="">— Seleccionar —</option>
+              <option value="612">612 — Personas Físicas c/Actividades Empresariales</option>
+              <option value="621">621 — Incorporación Fiscal</option>
+              <option value="601">601 — General Ley Personas Morales</option>
+              <option value="626">626 — Resico</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panel-body -->
+
+  <div class="panel-footer">
+    <button class="btn btn-ghost" onclick="cerrarPanel()">Cancelar</button>
+    <button class="btn btn-primary" id="btn-guardar-panel" onclick="guardarProveedor()">Guardar proveedor</button>
+  </div>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/services/api.js"></script>
+<script src="/js/services/auth.service.js"></script>
+<script src="/js/services/catalogos.service.js"></script>
+<script src="/js/services/proveedores.service.js"></script>
+<script src="/js/utils/format.js"></script>
+<script src="/js/utils/toast.js"></script>
+<script src="/js/utils/table.js"></script>
+<script src="/js/components/sidebar.js"></script>
+<script src="/js/utils/auth.guard.js"></script>
+<script>
+'use strict';
+
+// ─── Estado ──────────────────────────────────────────────────────────────────
+const state = {
+  vistaActual:     'tarjetas',
+  todosProveedores: [],
+  filtros:         {},
+  page:            1,
+  limit:           15,
+};
+
+const pv = {
+  id:        null,
+  tiposData: [],
+  zonasRows: [],
+};
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  await cargarProveedores();
+
+  let timer;
+  document.getElementById('filtro-buscar').addEventListener('input', e => {
+    clearTimeout(timer);
+    timer = setTimeout(() => { state.filtros.buscar = e.target.value.trim(); state.page = 1; renderVista(); }, 350);
+  });
+  document.getElementById('filtro-estatus').addEventListener('change', e => {
+    state.filtros.estatus = e.target.value; state.page = 1; renderVista();
+  });
+  document.getElementById('filtro-activo').addEventListener('change', e => {
+    state.filtros.activo = e.target.value; state.page = 1; renderVista();
+  });
+  document.getElementById('btn-limpiar').addEventListener('click', limpiarFiltros);
+});
+
+// ─── Carga principal ──────────────────────────────────────────────────────────
+async function cargarProveedores() {
+  const grid = document.getElementById('grid-proveedores');
+  if (grid && state.vistaActual === 'tarjetas') {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:#94a3b8">Cargando…</div>`;
+  }
+  try {
+    // todos=1 trae activos e inactivos; limit alto para cargar todos en una sola llamada
+    const res = await proveedoresService.listar({ todos: '1', limit: 500 });
+    state.todosProveedores = res.data || [];
+    renderVista();
+  } catch {
+    toast.error('Error al cargar proveedores');
+  }
+}
+
+// ─── Filtrar y enrutar ────────────────────────────────────────────────────────
+function renderVista() {
+  let rows = state.todosProveedores;
+
+  if (state.filtros.buscar) {
+    const q = state.filtros.buscar.toLowerCase();
+    rows = rows.filter(p =>
+      p.nombre?.toLowerCase().includes(q) ||
+      p.razon_social?.toLowerCase().includes(q) ||
+      p.rfc?.toLowerCase().includes(q) ||
+      p.email?.toLowerCase().includes(q)
+    );
+  }
+  if (state.filtros.estatus) {
+    rows = rows.filter(p => p.estatus_expediente === state.filtros.estatus);
+  }
+  if (state.filtros.activo !== undefined && state.filtros.activo !== '') {
+    rows = rows.filter(p => String(p.activo) === state.filtros.activo);
+  }
+
+  const total = rows.length;
+  document.getElementById('contador-proveedores').textContent =
+    `${total} proveedor${total !== 1 ? 'es' : ''}`;
+
+  if (state.vistaActual === 'tarjetas') renderTarjetas(rows);
+  else renderTabla(rows);
+}
+
+// ─── Vista tarjetas ───────────────────────────────────────────────────────────
+function renderTarjetas(rows) {
+  const grid = document.getElementById('grid-proveedores');
+  if (!grid) return;
+
+  if (!rows.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:48px;color:#94a3b8">
+      <div style="font-size:32px;margin-bottom:8px">⚖️</div>
+      No se encontraron proveedores con los filtros seleccionados.
+    </div>`;
+    return;
+  }
+
+  const MAX_CASOS = 10;
+  grid.innerHTML = rows.map(p => {
+    const inicial    = p.nombre.charAt(0).toUpperCase();
+    const casos      = parseInt(p.casos_activos) || 0;
+    const estatus    = p.estatus_expediente || 'incompleto';
+    const labelExp   = { vigente:'Vigente', por_vencer:'Por vencer', vencido:'Vencido', incompleto:'Incompleto', suspendido:'Suspendido' }[estatus] || estatus;
+    const svcClave   = p.servicios_claves || '';
+
+    const pctCarga   = Math.min((casos / MAX_CASOS) * 100, 100);
+    const claseCarga = pctCarga >= 80 ? 'alta' : pctCarga >= 40 ? 'media' : '';
+    const labelCarga = pctCarga >= 80 ? '🔴 Alta' : pctCarga >= 40 ? '🟡 Media' : '🟢 Normal';
+
+    const venc = p.fecha_vencimiento_expediente
+      ? p.fecha_vencimiento_expediente.slice(0, 10)
+      : null;
+
+    const inactBadge = !p.activo
+      ? '<span style="font-size:11px;background:#f1f5f9;color:#94a3b8;padding:1px 6px;border-radius:4px;margin-left:4px">Inactivo</span>'
+      : '';
+
+    return `
+      <div class="prov-card" onclick="editarProveedor('${p.id}')">
+        <div class="prov-avatar ${estatus}">${inicial}</div>
+        <div class="prov-info">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span class="prov-nombre" title="${escHtml(p.nombre)}">${escHtml(p.nombre)}</span>
+            <span class="badge-exp ${estatus}">${labelExp}</span>
+            ${inactBadge}
+          </div>
+          ${p.email    ? `<div class="prov-sub">${escHtml(p.email)}</div>` : ''}
+          ${p.telefono ? `<div class="prov-sub">${escHtml(p.telefono)}</div>` : ''}
+
+          <div class="carga-bar" title="${casos} casos activos">
+            <div class="carga-fill ${claseCarga}" style="width:${pctCarga}%"></div>
+          </div>
+
+          <div class="prov-stats">
+            <div class="prov-stat prov-stat--activo">
+              <div class="prov-stat__num">${casos}</div>
+              <div class="prov-stat__label">Casos act.</div>
+            </div>
+            <div class="prov-stat">
+              <div class="prov-stat__num" style="font-size:12px;color:#0891b2;font-weight:700">${svcClave || '—'}</div>
+              <div class="prov-stat__label">Servicios</div>
+            </div>
+            <div class="prov-stat">
+              <div class="prov-stat__num" style="font-size:11px;color:#64748b;font-weight:600">${venc || '—'}</div>
+              <div class="prov-stat__label">Vencimiento</div>
+            </div>
+          </div>
+
+          <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();verCasos('${p.id}')">📋 Ver casos</button>
+            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editarProveedor('${p.id}')" title="Editar">✏️</button>
+            <span style="margin-left:auto;font-size:11px;color:#94a3b8">${labelCarga}</span>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ─── Vista tabla ──────────────────────────────────────────────────────────────
+function renderTabla(rows) {
+  const tbody = document.getElementById('tabla-proveedores-body');
+  if (!tbody) return;
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8">No se encontraron proveedores.</td></tr>`;
+    return;
+  }
+
+  const total  = rows.length;
+  const offset = (state.page - 1) * state.limit;
+  const pagina = rows.slice(offset, offset + state.limit);
+  const meta   = { total, page: state.page, limit: state.limit, pages: Math.ceil(total / state.limit) };
+
+  tbody.innerHTML = pagina.map(p => {
+    const estatus  = p.estatus_expediente || 'incompleto';
+    const labelExp = { vigente:'Vigente', por_vencer:'Por vencer', vencido:'Vencido', incompleto:'Incompleto', suspendido:'Suspendido' }[estatus] || estatus;
+    const casos    = parseInt(p.casos_activos) || 0;
+    const venc     = p.fecha_vencimiento_expediente ? p.fecha_vencimiento_expediente.slice(0, 10) : '—';
+    const inicial  = p.nombre.charAt(0).toUpperCase();
+
+    return `
+      <tr style="cursor:pointer" onclick="editarProveedor('${p.id}')">
+        <td>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="prov-logo ${estatus}" style="background:var(--bg,#f1f5f9);color:var(--fg,#475569)">
+              ${inicial}
+            </div>
+            <div>
+              <strong>${escHtml(p.nombre)}</strong>
+              ${p.razon_social ? `<div style="font-size:12px;color:#64748b">${escHtml(p.razon_social)}</div>` : ''}
+              ${!p.activo ? `<span style="font-size:10px;background:#f1f5f9;color:#94a3b8;padding:1px 6px;border-radius:4px">Inactivo</span>` : ''}
+            </div>
+          </div>
+        </td>
+        <td>
+          ${p.servicios_claves
+            ? `<span style="font-size:11px;background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:4px;font-weight:600">${escHtml(p.servicios_claves)}</span>`
+            : '<span style="color:#94a3b8;font-size:12px">—</span>'}
+        </td>
+        <td style="text-align:center">
+          <span class="badge-exp ${estatus}">${labelExp}</span>
+        </td>
+        <td style="font-size:12px;color:#475569">${venc}</td>
+        <td style="text-align:center">
+          <strong style="font-size:15px;color:${casos > 7 ? '#dc2626' : casos > 4 ? '#d97706' : '#0891b2'}">${casos}</strong>
+        </td>
+        <td style="font-size:12px;color:#475569">
+          ${p.email    ? `<div>${escHtml(p.email)}</div>` : ''}
+          ${p.telefono ? `<div style="color:#94a3b8">${escHtml(p.telefono)}</div>` : ''}
+        </td>
+        <td style="text-align:center">
+          <div style="display:flex;gap:6px;justify-content:center">
+            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();verCasos('${p.id}')" title="Ver casos">📋</button>
+            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editarProveedor('${p.id}')" title="Editar">✏️</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  table.renderPagination('#paginacion-proveedores', meta, pg => { state.page = pg; renderTabla(rows); });
+}
+
+// ─── Toggle de vista ──────────────────────────────────────────────────────────
+function cambiarVista(vista) {
+  state.vistaActual = vista;
+  document.getElementById('vista-tarjetas').style.display = vista === 'tarjetas' ? '' : 'none';
+  document.getElementById('vista-tabla').style.display    = vista === 'tabla'    ? '' : 'none';
+  document.getElementById('btn-vista-tarjetas').classList.toggle('active', vista === 'tarjetas');
+  document.getElementById('btn-vista-tabla').classList.toggle('active',    vista === 'tabla');
+  renderVista();
+}
+
+// ─── Navegación ───────────────────────────────────────────────────────────────
+function verCasos(proveedorId) {
+  window.location.href = `/bandeja.html?proveedor_id=${proveedorId}`;
+}
+
+// ─── Limpiar filtros ──────────────────────────────────────────────────────────
+function limpiarFiltros() {
+  state.filtros = {};
+  state.page    = 1;
+  document.getElementById('filtro-buscar').value  = '';
+  document.getElementById('filtro-estatus').value = '';
+  document.getElementById('filtro-activo').value  = '';
+  renderVista();
+}
+
+// ─── Panel: abrir nuevo ───────────────────────────────────────────────────────
+async function abrirPanel() {
+  pv.id        = null;
+  pv.zonasRows = [];
+  limpiarFormulario();
+  document.getElementById('panel-titulo').textContent = 'Nuevo proveedor';
+  document.getElementById('seccion-documentos').style.display = 'none';
+  switchTab('generales');
+  await cargarTiposEnPanel([]);
+  renderZonasRows();
+  togglePanel(true);
+}
+
+// ─── Panel: editar existente ──────────────────────────────────────────────────
+async function editarProveedor(id) {
+  try {
+    const p  = await proveedoresService.obtener(id);
+    pv.id    = id;
+    document.getElementById('panel-titulo').textContent = `Editar — ${p.nombre}`;
+    document.getElementById('seccion-documentos').style.display = '';
+    limpiarFormulario();
+    rellenarFormulario(p);
+    switchTab('generales');
+    await cargarTiposEnPanel(p.servicios || []);
+    pv.zonasRows = (p.zonas || []).map(z => ({ ...z }));
+    renderZonasRows();
+    renderDocumentosExp(p.documentos || []);
+    togglePanel(true);
+  } catch {
+    toast.error('Error al cargar proveedor');
+  }
+}
+
+function cerrarPanel() {
+  togglePanel(false);
+  setTimeout(() => { pv.id = null; pv.zonasRows = []; }, 300);
+}
+
+function togglePanel(open) {
+  document.getElementById('panel-overlay').classList.toggle('open', open);
+  document.getElementById('panel-proveedor').classList.toggle('open', open);
+}
+
+// ─── Tabs ──────────────────────────────────────────────────────────────────────
+function switchTab(nombre) {
+  document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.panel-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById(`tab-${nombre}`).style.display = '';
+  document.querySelector(`[data-tab="${nombre}"]`).classList.add('active');
+}
+
+// ─── Rellenar / limpiar formulario ────────────────────────────────────────────
+function limpiarFormulario() {
+  const clear = id => { const e = document.getElementById(id); if (e) e.value = ''; };
+  ['f-nombre','f-razon-social','f-rfc','f-email','f-telefono','f-tel-emergencias','f-notas',
+   'f-num-exp','f-fecha-alta','f-fecha-venc',
+   'f-banco','f-clabe','f-cuenta','f-titular','f-tarifa-base','f-tarifa-hora','f-notas-tarifa']
+    .forEach(clear);
+  document.getElementById('f-tipo-persona').value  = 'fisica';
+  document.getElementById('f-activo').value         = 'true';
+  document.getElementById('f-estatus-exp').value    = 'incompleto';
+  document.getElementById('f-tipo-tarifa').value    = '';
+  document.getElementById('f-moneda').value         = 'MXN';
+  document.getElementById('f-tipo-cuenta').value    = '';
+  document.getElementById('f-uso-cfdi').value       = '';
+  document.getElementById('f-regimen-fiscal').value = '';
+  document.getElementById('f-viaticos').checked     = false;
+  document.getElementById('lista-docs-exp').innerHTML =
+    '<div style="text-align:center;color:#94a3b8;padding:16px;font-size:13px">Sin documentos cargados</div>';
+}
+
+function rellenarFormulario(p) {
+  const set = (id, val) => { const e = document.getElementById(id); if (e && val != null) e.value = val; };
+  set('f-nombre',           p.nombre);
+  set('f-razon-social',     p.razon_social);
+  set('f-rfc',              p.rfc);
+  set('f-email',            p.email);
+  set('f-telefono',         p.telefono);
+  set('f-tel-emergencias',  p.telefono_emergencias);
+  set('f-notas',            p.notas_internas);
+  set('f-tipo-persona',     p.tipo_persona);
+  set('f-activo',           String(p.activo));
+  set('f-num-exp',          p.num_expediente);
+  set('f-estatus-exp',      p.estatus_expediente);
+  set('f-fecha-alta',       p.fecha_alta_expediente?.slice(0,10));
+  set('f-fecha-venc',       p.fecha_vencimiento_expediente?.slice(0,10));
+
+  const t = p.tarifas || {};
+  set('f-tipo-tarifa',  t.tipo_tarifa);
+  set('f-moneda',       t.moneda || 'MXN');
+  set('f-tarifa-base',  t.tarifa_base);
+  set('f-tarifa-hora',  t.tarifa_hora);
+  set('f-notas-tarifa', t.notas);
+  document.getElementById('f-viaticos').checked = !!t.viaticos;
+
+  const b = p.datos_bancarios || {};
+  set('f-banco',          b.banco);
+  set('f-tipo-cuenta',    b.tipo_cuenta);
+  set('f-clabe',          b.clabe);
+  set('f-cuenta',         b.cuenta);
+  set('f-titular',        b.titular);
+  set('f-uso-cfdi',       b.uso_cfdi);
+  set('f-regimen-fiscal', b.regimen_fiscal);
+}
+
+// ─── Servicios: tipos + subtipos ──────────────────────────────────────────────
+async function cargarTiposEnPanel(serviciosActivos) {
+  const cont = document.getElementById('servicios-container');
+  try {
+    // Solo tipos activos para asignación a proveedores
+    pv.tiposData = await catalogosService.getTipos();
+    for (const tipo of pv.tiposData) {
+      // Solo subtipos activos — evita mostrar los obsoletos desactivados por seed 007
+      try { tipo._subtipos = await catalogosService.getSubtipos(tipo.id); }
+      catch { tipo._subtipos = []; }
+    }
+    renderServicios(serviciosActivos);
+  } catch {
+    cont.innerHTML = '<div style="color:#dc2626;font-size:13px">Error al cargar tipos de asistencia.</div>';
+  }
+}
+
+function renderServicios(serviciosActivos = []) {
+  const cont = document.getElementById('servicios-container');
+  if (!pv.tiposData.length) {
+    cont.innerHTML = '<div style="color:#94a3b8;font-size:13px">No hay tipos configurados.</div>';
+    return;
+  }
+  cont.innerHTML = pv.tiposData.map(tipo => {
+    const tipoActivo = serviciosActivos.some(s => s.tipo_id === tipo.id && !s.subtipo_id);
+    const subHtml    = (tipo._subtipos || []).map(sub => {
+      const sel = serviciosActivos.some(s => s.tipo_id === tipo.id && s.subtipo_id === sub.id);
+      return `<div class="subtipo-chip ${sel ? 'selected' : ''}"
+                   data-tipo="${tipo.id}" data-sub="${sub.id}"
+                   onclick="toggleSubtipo(this)">
+                <span class="check-icon">✓ </span>${escHtml(sub.nombre)}
+              </div>`;
+    }).join('');
+    return `<div class="tipo-block">
+      <div class="tipo-block__header" onclick="toggleTipoBlock(this, '${tipo.id}')">
+        <input type="checkbox" id="chk-tipo-${tipo.id}" ${tipoActivo ? 'checked' : ''}
+               onclick="event.stopPropagation();onCheckTipoCompleto(event, '${tipo.id}')"
+               style="width:16px;height:16px;cursor:pointer">
+        <span class="tipo-block__title">${escHtml(tipo.icono || '📌')} ${escHtml(tipo.nombre)}</span>
+        ${(tipo._subtipos||[]).length ? `<span style="margin-left:auto;font-size:11px;color:#94a3b8">${tipo._subtipos.length} subtipos ▸</span>` : ''}
+      </div>
+      ${subHtml ? `<div class="tipo-block__body">${subHtml}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function toggleTipoBlock(header, tipoId) {
+  const body = header.nextElementSibling;
+  if (body?.classList.contains('tipo-block__body')) body.classList.toggle('open');
+}
+
+function onCheckTipoCompleto(e, tipoId) {
+  const block = e.target.closest('.tipo-block');
+  if (e.target.checked) {
+    block.querySelectorAll('.subtipo-chip.selected').forEach(c => c.classList.remove('selected'));
+  }
+}
+
+function toggleSubtipo(chip) {
+  chip.classList.toggle('selected');
+  if (chip.classList.contains('selected')) {
+    const chk = document.getElementById(`chk-tipo-${chip.dataset.tipo}`);
+    if (chk) chk.checked = false;
+  }
+}
+
+function leerServicios() {
+  const result = [];
+  document.querySelectorAll('.tipo-block').forEach(block => {
+    const chk = block.querySelector('input[type=checkbox][id^="chk-tipo-"]');
+    if (!chk) return;
+    const tipoId = chk.id.replace('chk-tipo-', '');
+    if (chk.checked) {
+      result.push({ tipo_id: tipoId, subtipo_id: null });
+    } else {
+      block.querySelectorAll('.subtipo-chip.selected').forEach(chip => {
+        result.push({ tipo_id: chip.dataset.tipo, subtipo_id: chip.dataset.sub });
+      });
+    }
+  });
+  return result;
+}
+
+// ─── Zonas ────────────────────────────────────────────────────────────────────
+function agregarFilaZona() {
+  pv.zonasRows.push({ estado: '', municipio: '', codigo_postal: '' });
+  renderZonasRows();
+}
+
+function eliminarFilaZona(idx) {
+  pv.zonasRows.splice(idx, 1);
+  renderZonasRows();
+}
+
+function renderZonasRows() {
+  const cont = document.getElementById('zonas-container');
+  if (!pv.zonasRows.length) {
+    cont.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:12px">Sin zonas definidas.</div>';
+    return;
+  }
+  cont.innerHTML =
+    `<div class="zona-row" style="margin-bottom:4px">
+       <span style="font-size:11px;font-weight:600;color:#64748b">Estado *</span>
+       <span style="font-size:11px;font-weight:600;color:#64748b">Municipio</span>
+       <span style="font-size:11px;font-weight:600;color:#64748b">C.P.</span>
+       <span></span>
+     </div>` +
+    pv.zonasRows.map((z, i) => `
+      <div class="zona-row">
+        <input type="text" placeholder="Ej: Ciudad de México" value="${escHtml(z.estado || '')}"
+               oninput="pv.zonasRows[${i}].estado=this.value">
+        <input type="text" placeholder="Municipio (opcional)" value="${escHtml(z.municipio || '')}"
+               oninput="pv.zonasRows[${i}].municipio=this.value">
+        <input type="text" placeholder="CP" maxlength="5" value="${escHtml(z.codigo_postal || '')}"
+               oninput="pv.zonasRows[${i}].codigo_postal=this.value">
+        <button class="btn-del-zona" onclick="eliminarFilaZona(${i})" title="Eliminar zona">×</button>
+      </div>`).join('');
+}
+
+function leerZonas() {
+  return pv.zonasRows.filter(z => z.estado?.trim());
+}
+
+// ─── Documentos ───────────────────────────────────────────────────────────────
+function renderDocumentosExp(docs) {
+  const cont = document.getElementById('lista-docs-exp');
+  if (!docs.length) {
+    cont.innerHTML = '<div style="text-align:center;color:#94a3b8;padding:16px;font-size:13px">Sin documentos cargados</div>';
+    return;
+  }
+  cont.innerHTML = docs.map(d => {
+    const icono = d.mime_type?.includes('pdf') ? '📄' : d.mime_type?.includes('image') ? '🖼️' : '📎';
+    const tipoLabel = { identificacion:'ID', cedula_profesional:'Cédula', comprobante_domicilio:'Dom.', contrato:'Contrato', acta_constitutiva:'Acta', poder_notarial:'Poder', constancia_situacion_fiscal:'CSF', poliza_responsabilidad:'Póliza', otro:'Otro' }[d.tipo_doc] || d.tipo_doc;
+    return `<div class="doc-row">
+      <div class="doc-icon">${icono}</div>
+      <div style="flex:1;min-width:0">
+        <div class="doc-nombre">${escHtml(d.nombre)}</div>
+        <div class="doc-meta">${tipoLabel}${d.fecha_vencimiento ? ' · Vence: ' + d.fecha_vencimiento.slice(0,10) : ''}</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="abrirDoc('${d.id}')">Ver</button>
+    </div>`;
+  }).join('');
+}
+
+async function abrirDoc(docId) {
+  if (!pv.id) return;
+  try {
+    const data = await proveedoresService.getUrlDocumento(pv.id, docId);
+    window.open(data.url, '_blank');
+  } catch {
+    toast.error('No se pudo obtener el enlace');
+  }
+}
+
+async function subirDocumentoExp(input) {
+  if (!pv.id || !input.files[0]) return;
+  const fd = new FormData();
+  fd.append('archivo',  input.files[0]);
+  fd.append('tipo_doc', document.getElementById('select-tipo-doc').value);
+  const venc = document.getElementById('input-doc-venc').value;
+  if (venc) fd.append('fecha_vencimiento', venc);
+  try {
+    await proveedoresService.subirDocumento(pv.id, fd);
+    toast.success('Documento subido');
+    const p = await proveedoresService.obtener(pv.id);
+    renderDocumentosExp(p.documentos || []);
+    input.value = '';
+  } catch {
+    toast.error('Error al subir documento');
+  }
+}
+
+// ─── Guardar ──────────────────────────────────────────────────────────────────
+async function guardarProveedor() {
+  const nombre = document.getElementById('f-nombre').value.trim();
+  if (!nombre) {
+    toast.warning('El nombre del proveedor es obligatorio');
+    switchTab('generales');
+    document.getElementById('f-nombre').focus();
+    return;
+  }
+
+  const btn = document.getElementById('btn-guardar-panel');
+  btn.disabled    = true;
+  btn.textContent = 'Guardando…';
+
+  try {
+    const tipoTarifa = document.getElementById('f-tipo-tarifa').value || null;
+    const tarifaBase = parseFloat(document.getElementById('f-tarifa-base').value) || null;
+    const tarifaHora = parseFloat(document.getElementById('f-tarifa-hora').value) || null;
+    const tarifas = (tipoTarifa || tarifaBase)
+      ? {
+          tipo_tarifa: tipoTarifa,
+          moneda:      document.getElementById('f-moneda').value,
+          tarifa_base: tarifaBase,
+          tarifa_hora: tarifaHora || undefined,
+          viaticos:    document.getElementById('f-viaticos').checked,
+          notas:       document.getElementById('f-notas-tarifa').value.trim() || undefined,
+        }
+      : null;
+
+    const banco = document.getElementById('f-banco').value.trim();
+    const clabe = document.getElementById('f-clabe').value.trim();
+    const datos_bancarios = (banco || clabe)
+      ? {
+          banco,
+          clabe,
+          cuenta:         document.getElementById('f-cuenta').value.trim()        || undefined,
+          titular:        document.getElementById('f-titular').value.trim()        || undefined,
+          tipo_cuenta:    document.getElementById('f-tipo-cuenta').value           || undefined,
+          uso_cfdi:       document.getElementById('f-uso-cfdi').value              || undefined,
+          regimen_fiscal: document.getElementById('f-regimen-fiscal').value        || undefined,
+        }
+      : null;
+
+    const payload = {
+      nombre,
+      razon_social:                 document.getElementById('f-razon-social').value.trim()    || null,
+      tipo_persona:                 document.getElementById('f-tipo-persona').value,
+      rfc:                          document.getElementById('f-rfc').value.trim()              || null,
+      email:                        document.getElementById('f-email').value.trim()            || null,
+      telefono:                     document.getElementById('f-telefono').value.trim()         || null,
+      telefono_emergencias:         document.getElementById('f-tel-emergencias').value.trim()  || null,
+      notas_internas:               document.getElementById('f-notas').value.trim()            || null,
+      activo:                       document.getElementById('f-activo').value === 'true',
+      num_expediente:               document.getElementById('f-num-exp').value.trim()          || null,
+      fecha_alta_expediente:        document.getElementById('f-fecha-alta').value              || null,
+      fecha_vencimiento_expediente: document.getElementById('f-fecha-venc').value              || null,
+      estatus_expediente:           document.getElementById('f-estatus-exp').value,
+      tarifas,
+      datos_bancarios,
+    };
+
+    let provId  = pv.id;
+    const esNuevo = !provId;
+
+    if (provId) {
+      await proveedoresService.actualizar(provId, payload);
+    } else {
+      const nuevo = await proveedoresService.crear(payload);
+      provId      = nuevo.id;
+      pv.id       = provId;
+      document.getElementById('seccion-documentos').style.display = '';
+    }
+
+    await proveedoresService.sincronizarServicios(provId, leerServicios());
+    await proveedoresService.sincronizarZonas(provId, leerZonas());
+
+    toast.success(esNuevo ? 'Proveedor creado exitosamente' : 'Proveedor actualizado');
+    cerrarPanel();
+    await cargarProveedores();
+  } catch (err) {
+    toast.error(err?.message || 'Error al guardar proveedor');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Guardar proveedor';
+  }
+}
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+window.cambiarVista   = cambiarVista;
+window.verCasos       = verCasos;
+window.editarProveedor = editarProveedor;
+window.abrirPanel     = abrirPanel;
+</script>
+</body>
+</html>

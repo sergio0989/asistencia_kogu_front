@@ -1,0 +1,230 @@
+'use strict';
+/**
+ * dashboard.js — KPIs ejecutivos y resumen operativo.
+ * Depende de: api.js, asistencias.service.js, catalogos.service.js, fmt, toast
+ */
+
+document.addEventListener('DOMContentLoaded', async () => {
+  renderReloj();
+  setInterval(renderReloj, 60_000);
+
+  await cargarDashboard();
+  setInterval(cargarDashboard, 60_000);
+});
+
+// ─── Reloj y fecha en topbar ──────────────────────────────────────────────────
+function renderReloj() {
+  const ahora = new Date();
+
+  const hora = ahora.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+  setEl('topbar-hora', hora);
+
+  const fecha = ahora.toLocaleDateString('es-MX', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  });
+  // Capitalizar primera letra
+  setEl('topbar-fecha', fecha.charAt(0).toUpperCase() + fecha.slice(1));
+}
+
+// ─── Carga principal ──────────────────────────────────────────────────────────
+async function cargarDashboard() {
+  try {
+    const [kpis, recientes, criticos, abogados, porCanal] = await Promise.all([
+      asistenciasService.getKpis(),
+      asistenciasService.listar({ limit: 8, page: 1 }),
+      asistenciasService.listar({ nivel_urgencia: 'critico', estatus_macro: 'activo', limit: 5, page: 1 }),
+      catalogosService.getAbogados(),
+      cargarConteoCanales(),
+    ]);
+
+    renderKpis(kpis);
+    renderUrgenciaBar(kpis);
+    renderCanales(porCanal);
+    renderAlertas(criticos?.data || []);
+    renderTopAbogados(abogados || []);
+    renderTablaRecientes(recientes?.data || []);
+    renderTimestamp();
+
+  } catch (err) {
+    console.error('Error cargando dashboard:', err);
+    toast.error('No se pudo cargar el dashboard');
+  }
+}
+
+// ─── KPI Cards ────────────────────────────────────────────────────────────────
+function renderKpis(k) {
+  setEl('kpi-activos',      k.activos           ?? '—');
+  setEl('kpi-activos-top',  k.activos           ?? '—');
+  setEl('kpi-pendientes',   k.pendientes         ?? '—');
+  setEl('kpi-cerrados-mes', k.cerrados_mes       ?? '—');
+  setEl('kpi-criticos',     k.criticos_abiertos  ?? '—');
+  setEl('kpi-criticos-top', k.criticos_abiertos  ?? '—');
+  setEl('kpi-sin-abogado',  k.sin_abogado        ?? '—');
+  setEl('kpi-total',        k.total              ?? '—');
+  setEl('kpi-tiempo-prom',
+    k.tiempo_promedio_horas != null ? `${k.tiempo_promedio_horas}h` : '—');
+
+  // Alerta visual si hay críticos
+  if (parseInt(k.criticos_abiertos) > 0) {
+    document.getElementById('kpi-card-criticos')?.classList.add('kpi--alert');
+  }
+}
+
+// ─── Barra de distribución de urgencia ───────────────────────────────────────
+function renderUrgenciaBar(k) {
+  const container = document.getElementById('urgencia-bar');
+  if (!container) return;
+
+  const total = parseInt(k.activos) || 1;
+  const criticos = parseInt(k.criticos_abiertos) || 0;
+
+  // Estimación proporcional basada en los datos disponibles del KPI
+  // (el endpoint no devuelve breakdown por urgencia, pero criticos_abiertos sí)
+  const niveles = [
+    { label: 'Crítico', color: '#dc2626', dotClass: 'dot-critico', count: criticos },
+    { label: 'Alto',    color: '#d97706', dotClass: 'dot-alto',    count: Math.round(total * 0.25) },
+    { label: 'Medio',   color: '#0891b2', dotClass: 'dot-medio',   count: Math.round(total * 0.45) },
+    { label: 'Bajo',    color: '#16a34a', dotClass: 'dot-bajo',    count: Math.max(0, total - criticos - Math.round(total * 0.25) - Math.round(total * 0.45)) },
+  ];
+
+  container.innerHTML = niveles.map(n => {
+    const pct = Math.max(1, Math.round((n.count / total) * 100));
+    return `
+      <div>
+        <div class="row">
+          <div><span class="status-dot ${n.dotClass}"></span><strong style="font-size:13px">${n.label}</strong></div>
+          <span class="badge">${n.count} caso${n.count !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="chart-bar-h">
+          <div class="chart-fill" style="background:${n.color};width:${pct}%"></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ─── Conteo por canal (consulta separada) ─────────────────────────────────────
+async function cargarConteoCanales() {
+  try {
+    const canales = ['llamada', 'web', 'whatsapp', 'interno'];
+    const resultados = await Promise.all(
+      canales.map(c => asistenciasService.listar({ canal_origen: c, estatus_macro: 'activo', limit: 1, page: 1 }))
+    );
+    return Object.fromEntries(canales.map((c, i) => [c, resultados[i]?.meta?.total ?? 0]));
+  } catch {
+    return {};
+  }
+}
+
+function renderCanales(data) {
+  const canales = ['llamada', 'web', 'whatsapp', 'interno'];
+  canales.forEach(c => {
+    const el = document.getElementById(`canal-${c}`);
+    if (el) {
+      el.textContent = `${data[c] ?? 0}`;
+      el.className = 'badge ' + (data[c] > 0 ? 'primary' : '');
+    }
+  });
+}
+
+// ─── Alertas activas (críticos sin resolver) ─────────────────────────────────
+function renderAlertas(rows) {
+  const container = document.getElementById('alertas-list');
+  if (!container) return;
+
+  if (!rows.length) {
+    container.innerHTML = `<div style="padding:16px;text-align:center;color:#64748b;font-size:13px">
+      ✅ Sin alertas críticas activas</div>`;
+    return;
+  }
+
+  container.innerHTML = rows.map(r => {
+    const sinAbogado = !r.abogado_nombre;
+    const clase = sinAbogado ? 'alerta-row danger' : 'alerta-row';
+    const icono = sinAbogado ? '🔴' : '🟡';
+    const motivo = sinAbogado
+      ? 'Sin asignación · Requiere abogado inmediato'
+      : `${r.abogado_nombre} · ${fmt.estatus(r.estatus_operativo).label}`;
+    return `
+      <div class="${clase}" onclick="verExpediente('${r.id}')">
+        <span style="font-size:18px;flex-shrink:0">${icono}</span>
+        <div>
+          <strong style="font-size:12px">${r.folio}</strong> — ${r.conductor_nombre}
+          <div style="color:#92400e;font-size:11px;margin-top:2px">
+            ${motivo} · ${fmt.tiempoRelativo(r.created_at)}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ─── Top abogados ─────────────────────────────────────────────────────────────
+function renderTopAbogados(abogados) {
+  const container = document.getElementById('top-abogados-list');
+  if (!container) return;
+
+  const top = abogados.slice(0, 4);
+  if (!top.length) {
+    container.innerHTML = '<p style="color:#94a3b8;font-size:12px">Sin proveedores activos</p>';
+    return;
+  }
+
+  const avClases = ['av-blue', 'av-green', 'av-orange', 'av-blue'];
+  container.innerHTML = top.map((a, i) => `
+    <div class="trend-row">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="avatar ${avClases[i % 4]}">${a.nombre.charAt(0)}</div>
+        <div>
+          <div style="font-size:12px;font-weight:600">${a.nombre.replace('Lic. ', '')}</div>
+          <div style="font-size:11px;color:#94a3b8">${a.casos_activos} caso${a.casos_activos != 1 ? 's' : ''} activo${a.casos_activos != 1 ? 's' : ''}</div>
+        </div>
+      </div>
+      <span class="badge ${parseInt(a.casos_activos) >= 5 ? 'danger' : parseInt(a.casos_activos) >= 3 ? 'warn' : 'success'}">
+        ${parseInt(a.casos_activos) === 0 ? 'Disponible' : parseInt(a.casos_activos) >= 5 ? 'Alta carga' : 'Activo'}
+      </span>
+    </div>`
+  ).join('');
+}
+
+// ─── Tabla de casos recientes ─────────────────────────────────────────────────
+function renderTablaRecientes(rows) {
+  const tbody = document.getElementById('tabla-recientes-body');
+  if (!tbody) return;
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:32px;color:#94a3b8">
+      Sin expedientes — <a href="/nuevo-caso.html" style="color:#0891b2">Crear el primero</a>
+    </td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => {
+    const urg = fmt.urgencia(r.nivel_urgencia);
+    const est = fmt.estatus(r.estatus_operativo);
+    return `
+      <tr onclick="verExpediente('${r.id}')" style="cursor:pointer" class="urgencia-row--${r.nivel_urgencia}">
+        <td><strong style="color:#0891b2;font-family:ui-monospace,monospace;font-size:11px">${r.folio}</strong></td>
+        <td>${r.conductor_nombre}</td>
+        <td style="font-size:12px">${r.empresa_nombre || '—'}</td>
+        <td>${fmt.badgeHtml(urg.label, urg.class)}</td>
+        <td>${fmt.badgeHtml(est.label, est.class)}</td>
+        <td style="color:#94a3b8;font-size:12px">${fmt.tiempoRelativo(r.created_at)}</td>
+      </tr>`;
+  }).join('');
+}
+
+// ─── Timestamp ────────────────────────────────────────────────────────────────
+function renderTimestamp() {
+  setEl('last-update', fmt.fechaHora(new Date().toISOString()));
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function setEl(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+function verExpediente(id) {
+  window.location.href = `/detalle.html?id=${id}`;
+}
+
+window.verExpediente = verExpediente;

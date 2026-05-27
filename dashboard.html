@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dashboard — Kogu Asistencias</title>
+  <link rel="stylesheet" href="/styles/styles.css">
+  <style>
+    .kpi-icon{font-size:22px;margin-bottom:8px}
+    .kpi-delta{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;margin-top:6px}
+    .kpi-delta.up{background:#dcfce7;color:#16a34a}
+    .kpi-delta.down{background:#fee2e2;color:#dc2626}
+    .kpi-delta.neutral{background:#e2e8f0;color:#475569}
+    .section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-bottom:12px}
+    .status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block;margin-right:6px}
+    .dot-critico{background:#dc2626}.dot-alto{background:#d97706}.dot-medio{background:#0891b2}.dot-bajo{background:#16a34a}
+    .chart-bar-h{height:8px;border-radius:999px;background:#e2e8f0;overflow:hidden;margin-top:6px}
+    .chart-fill{height:100%;border-radius:999px;transition:width .5s ease}
+    .trend-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:13px}
+    .trend-row:last-child{border-bottom:none}
+    .avatar{width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+    .av-blue{background:#dbeafe;color:#1d4ed8}.av-green{background:#dcfce7;color:#16a34a}.av-orange{background:#fef3c7;color:#d97706}
+    .quick-action{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:16px 12px;border-radius:18px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;text-align:center;font-size:12px;font-weight:700;color:#374151;transition:all .15s}
+    .quick-action:hover{border-color:#0891b2;color:#0891b2;background:#ecfeff}
+    .quick-action-icon{font-size:24px}
+    .grid-qa{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+    .alerta-row{display:flex;align-items:flex-start;gap:12px;padding:10px 12px;border-radius:14px;border:1px solid #fde68a;background:#fffbeb;margin-bottom:8px;font-size:12px;cursor:pointer;transition:background .15s}
+    .alerta-row:hover{background:#fef9c3}
+    .alerta-row.danger{border-color:#fecaca;background:#fef2f2}
+    .alerta-row.danger:hover{background:#fee2e2}
+    .canal-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:13px}
+    .canal-row:last-child{border-bottom:none}
+    .skel{height:24px;background:#f1f5f9;border-radius:6px;animation:pulse 1.5s infinite}
+    .skel-sm{height:14px;width:60%;background:#f1f5f9;border-radius:4px;animation:pulse 1.5s infinite;margin:4px 0}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    .kpi--alert .value{color:#dc2626!important}
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar" id="sidebar-placeholder"></aside>
+
+  <!-- ── MAIN ── -->
+  <main class="main">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div>
+        <div class="eyebrow">Dashboard ejecutivo</div>
+        <h1>Operación del día</h1>
+        <p id="topbar-fecha">Cargando…</p>
+      </div>
+      <div class="topbar-cards">
+        <div class="top-mini">
+          <div class="k">Hora actual</div>
+          <div class="v" id="topbar-hora">—</div>
+        </div>
+        <div class="top-mini">
+          <div class="k">Activos</div>
+          <div class="v" id="kpi-activos-top">—</div>
+        </div>
+        <div class="top-mini">
+          <div class="k">Críticos</div>
+          <div class="v" id="kpi-criticos-top" style="color:#dc2626">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ACCIONES RÁPIDAS -->
+      <div class="grid-qa" style="margin-bottom:18px">
+        <div class="quick-action" onclick="window.location='/nuevo-caso.html'">
+          <div class="quick-action-icon">➕</div>Nuevo caso
+        </div>
+        <div class="quick-action" onclick="window.location='/bandeja.html'">
+          <div class="quick-action-icon">📋</div>Ver bandeja
+        </div>
+        <div class="quick-action" onclick="window.location='/catalogos/proveedores.html'">
+          <div class="quick-action-icon">⚖️</div>Proveedores
+        </div>
+        <div class="quick-action" onclick="window.location='/bandeja.html?nivel_urgencia=critico'">
+          <div class="quick-action-icon">🚨</div>Casos críticos
+        </div>
+      </div>
+
+      <!-- KPIs PRINCIPALES -->
+      <div class="grid-4" style="margin-bottom:18px">
+        <div class="kpi" id="kpi-card-activos">
+          <div class="kpi-icon">📁</div>
+          <div class="label">Casos activos</div>
+          <div class="value" id="kpi-activos"><div class="skel"></div></div>
+          <div class="hint">Total en gestión activa</div>
+        </div>
+        <div class="kpi" id="kpi-card-pendientes">
+          <div class="kpi-icon">⏳</div>
+          <div class="label">Pendientes</div>
+          <div class="value" id="kpi-pendientes"><div class="skel"></div></div>
+          <div class="hint">Esperando acción o documento</div>
+        </div>
+        <div class="kpi" id="kpi-card-cerrados">
+          <div class="kpi-icon">✅</div>
+          <div class="label">Cerrados este mes</div>
+          <div class="value" id="kpi-cerrados-mes"><div class="skel"></div></div>
+          <div class="hint">Cierre administrativo completo</div>
+        </div>
+        <div class="kpi" id="kpi-card-tiempo">
+          <div class="kpi-icon">⏱</div>
+          <div class="label">T. promedio atención</div>
+          <div class="value" id="kpi-tiempo-prom"><div class="skel"></div></div>
+          <div class="hint">Promedio de horas por caso cerrado</div>
+        </div>
+      </div>
+
+      <!-- KPIs SECUNDARIOS -->
+      <div class="grid-4" style="margin-bottom:18px">
+        <div class="kpi" style="border-left:3px solid #dc2626" id="kpi-card-criticos">
+          <div class="kpi-icon">🔴</div>
+          <div class="label">Críticos abiertos</div>
+          <div class="value" id="kpi-criticos" style="color:#dc2626"><div class="skel"></div></div>
+          <div class="hint">Requieren atención inmediata</div>
+        </div>
+        <div class="kpi" style="border-left:3px solid #d97706">
+          <div class="kpi-icon">👤</div>
+          <div class="label">Sin abogado</div>
+          <div class="value" id="kpi-sin-abogado" style="color:#d97706"><div class="skel"></div></div>
+          <div class="hint">Expedientes activos sin asignar</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-icon">📊</div>
+          <div class="label">Total histórico</div>
+          <div class="value" id="kpi-total"><div class="skel"></div></div>
+          <div class="hint">Todos los expedientes del sistema</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-icon">📅</div>
+          <div class="label">Última actualización</div>
+          <div class="value" id="last-update" style="font-size:12px;font-weight:600">—</div>
+          <div class="hint">Auto-refresh cada 60 segundos</div>
+        </div>
+      </div>
+
+      <!-- SEGUNDA FILA: urgencia + canal + alertas -->
+      <div class="grid-2" style="margin-bottom:18px">
+
+        <!-- Distribución por urgencia -->
+        <div class="card">
+          <div class="section-title">Distribución por urgencia</div>
+          <div id="urgencia-bar" class="stack" style="gap:10px">
+            <!-- Renderizado por dashboard.js -->
+            <div class="skel-sm"></div>
+            <div class="skel-sm"></div>
+            <div class="skel-sm"></div>
+            <div class="skel-sm"></div>
+          </div>
+        </div>
+
+        <!-- Canal de entrada -->
+        <div class="card">
+          <div class="section-title">Por canal de entrada</div>
+          <div id="canal-list">
+            <div class="canal-row">
+              <div><span style="font-size:16px">📞</span> Llamada / Cabina</div>
+              <span class="badge" id="canal-llamada">—</span>
+            </div>
+            <div class="canal-row">
+              <div><span style="font-size:16px">🌐</span> Web pública</div>
+              <span class="badge" id="canal-web">—</span>
+            </div>
+            <div class="canal-row">
+              <div><span style="font-size:16px">💬</span> WhatsApp</div>
+              <span class="badge" id="canal-whatsapp">—</span>
+            </div>
+            <div class="canal-row">
+              <div><span style="font-size:16px">🏢</span> Interno / API</div>
+              <span class="badge" id="canal-interno">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TERCERA FILA: alertas + top abogados -->
+      <div class="grid-2" style="margin-bottom:18px">
+
+        <!-- Alertas activas -->
+        <div class="card">
+          <div class="section-title">⚠️ Alertas activas</div>
+          <div id="alertas-list">
+            <div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px">Cargando alertas…</div>
+          </div>
+        </div>
+
+        <!-- Top abogados -->
+        <div class="card">
+          <div class="section-title">Top abogados activos</div>
+          <div id="top-abogados-list">
+            <div class="skel-sm"></div>
+            <div class="skel-sm" style="margin-top:8px"></div>
+            <div class="skel-sm" style="margin-top:8px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TABLA DE CASOS RECIENTES -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div class="section-title" style="margin-bottom:0">Expedientes recientes</div>
+          <a href="/bandeja.html" style="font-size:12px;color:#0891b2;text-decoration:none;font-weight:600">Ver todos →</a>
+        </div>
+        <div class="table-wrap" style="margin:0">
+          <table style="width:100%">
+            <thead>
+              <tr>
+                <th>Folio</th>
+                <th>Conductor</th>
+                <th>Empresa</th>
+                <th>Urgencia</th>
+                <th>Estatus</th>
+                <th>Apertura</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-recientes-body">
+              <tr><td colspan="6" style="text-align:center;padding:24px;color:#94a3b8">Cargando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </main>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/services/api.js"></script>
+<script src="/js/services/auth.service.js"></script>
+<script src="/js/services/asistencias.service.js"></script>
+<script src="/js/services/catalogos.service.js"></script>
+<script src="/js/utils/format.js"></script>
+<script src="/js/utils/toast.js"></script>
+<script src="/js/components/sidebar.js"></script>
+<script src="/js/utils/auth.guard.js"></script>
+<script src="/js/pages/dashboard.js"></script>
+</body>
+</html>

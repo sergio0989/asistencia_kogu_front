@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Empresas — Kogu Asistencias</title>
+  <link rel="stylesheet" href="/styles/styles.css">
+  <style>
+    /* ── Filtros ── */
+    .filters-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+    .filters-bar input,.filters-bar select{height:36px;padding:0 12px;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;background:#fff}
+    .filters-bar input{min-width:240px}
+
+    /* ── Toggle de vista ── */
+    .view-toggle{display:flex;gap:4px;background:#f1f5f9;border-radius:8px;padding:3px}
+    .view-toggle button{border:none;background:none;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;color:#64748b;transition:all .15s}
+    .view-toggle button.active{background:#fff;color:#0f172a;font-weight:600;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+
+    /* ── Tabla ── */
+    .empresa-logo{width:36px;height:36px;border-radius:10px;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#1d4ed8;flex-shrink:0}
+    .convenio-tag{display:inline-block;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:6px;font-size:11px;padding:2px 8px;margin:2px}
+
+    /* ── Tarjetas ── */
+    .grid-empresas{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px}
+    .emp-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:20px;display:flex;gap:16px;align-items:flex-start;transition:box-shadow .15s}
+    .emp-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.08)}
+    .emp-avatar{width:48px;height:48px;border-radius:14px;background:#ede9fe;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#7c3aed;flex-shrink:0}
+    .emp-info{flex:1;min-width:0}
+    .emp-nombre{font-size:14px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .emp-sub{font-size:12px;color:#64748b;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .emp-stats{display:flex;gap:0;margin-top:12px;border:1px solid #f1f5f9;border-radius:10px;overflow:hidden}
+    .emp-stat{flex:1;text-align:center;padding:8px 4px;border-right:1px solid #f1f5f9}
+    .emp-stat:last-child{border-right:none}
+    .emp-stat__num{font-size:18px;font-weight:800;color:#0f172a;line-height:1}
+    .emp-stat__label{font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-top:2px;white-space:nowrap}
+    .emp-stat--critico .emp-stat__num{color:#dc2626}
+    .emp-stat--activo .emp-stat__num{color:#0891b2}
+    .emp-stat--pendiente .emp-stat__num{color:#d97706}
+    .carga-bar{height:5px;border-radius:999px;background:#f1f5f9;overflow:hidden;margin-top:10px;width:100%}
+    .carga-fill{height:100%;border-radius:999px;background:#7c3aed;transition:width .3s}
+    .carga-fill.alta{background:#dc2626}
+    .carga-fill.media{background:#d97706}
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar" id="sidebar-placeholder"></aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="eyebrow">Catálogos</div>
+        <h1>Empresas y aseguradoras</h1>
+        <p>Clientes activos con volumen de casos y estatus operativo — período seleccionado</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button class="btn btn-primary" id="btn-nueva-empresa">➕ Nueva empresa</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- FILTROS + toggle de vista -->
+      <div class="filters-bar">
+        <input type="text" id="filtro-buscar" placeholder="🔍  Buscar empresa…">
+        <select id="filtro-activo">
+          <option value="">Todas</option>
+          <option value="true">Activas</option>
+          <option value="false">Inactivas</option>
+        </select>
+
+        <!-- Rango de fechas -->
+        <div style="display:flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:0 10px;height:36px">
+          <span style="font-size:11px;color:#94a3b8;font-weight:600;white-space:nowrap">PERÍODO</span>
+          <input type="date" id="filtro-fecha-desde" style="border:none;background:none;font-size:13px;color:#0f172a;outline:none;width:130px">
+          <span style="font-size:12px;color:#cbd5e1">—</span>
+          <input type="date" id="filtro-fecha-hasta" style="border:none;background:none;font-size:13px;color:#0f172a;outline:none;width:130px">
+        </div>
+
+        <button class="btn btn-ghost btn-sm" id="btn-limpiar">Limpiar</button>
+        <span id="contador-empresas" style="font-size:13px;color:#64748b"></span>
+        <div class="view-toggle" style="margin-left:auto">
+          <button id="btn-vista-tarjetas" class="active" onclick="cambiarVista('tarjetas')">🏢 Tarjetas</button>
+          <button id="btn-vista-tabla" onclick="cambiarVista('tabla')">☰ Tabla</button>
+        </div>
+      </div>
+
+      <!-- VISTA TARJETAS -->
+      <div id="vista-tarjetas">
+        <div id="grid-empresas" class="grid-empresas">
+          <div style="grid-column:1/-1;text-align:center;padding:40px;color:#94a3b8">Cargando empresas…</div>
+        </div>
+      </div>
+
+      <!-- VISTA TABLA -->
+      <div id="vista-tabla" style="display:none">
+        <div class="table-wrap">
+          <table style="width:100%">
+            <thead>
+              <tr>
+                <th>Empresa</th>
+                <th style="text-align:center">Abiertos</th>
+                <th style="text-align:center">Activos</th>
+                <th style="text-align:center">Pendientes</th>
+                <th style="text-align:center">Críticos</th>
+                <th>RFC</th>
+                <th>Contacto</th>
+                <th style="text-align:center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-empresas-body"></tbody>
+          </table>
+        </div>
+        <div id="paginacion" style="display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:14px;font-size:13px"></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- MODAL: Panel lateral empresa (detalle + convenios) -->
+<div class="modal-backdrop" id="modal-empresa" style="display:none">
+  <div class="modal-box" style="max-width:560px">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-empresa-titulo">Nueva empresa</h3>
+      <button class="modal-close" onclick="modal.close('modal-empresa')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="form-empresa" autocomplete="off">
+        <div class="form-grid">
+          <div class="form-group form-group--full">
+            <label>Razón social <span style="color:#dc2626">*</span></label>
+            <input type="text" id="e-razon-social" class="form-control" maxlength="200" required>
+          </div>
+          <div class="form-group">
+            <label>Nombre comercial</label>
+            <input type="text" id="e-nombre-comercial" class="form-control" maxlength="200">
+          </div>
+          <div class="form-group">
+            <label>RFC</label>
+            <input type="text" id="e-rfc" class="form-control" maxlength="13">
+          </div>
+          <div class="form-group">
+            <label>Email de contacto</label>
+            <input type="email" id="e-email" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Teléfono</label>
+            <input type="text" id="e-telefono" class="form-control" maxlength="20">
+          </div>
+        </div>
+      </form>
+
+      <!-- Convenios (solo en edición) -->
+      <div id="seccion-convenios" style="display:none;margin-top:20px;border-top:1px solid #f1f5f9;padding-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <strong style="font-size:13px">Convenios</strong>
+        </div>
+        <div id="lista-convenios"></div>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-empresa')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-empresa">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/services/api.js"></script>
+<script src="/js/services/auth.service.js"></script>
+<script src="/js/services/catalogos.service.js"></script>
+<script src="/js/utils/format.js"></script>
+<script src="/js/utils/toast.js"></script>
+<script src="/js/utils/modal.js"></script>
+<script src="/js/utils/table.js"></script>
+<script src="/js/components/sidebar.js"></script>
+<script src="/js/utils/auth.guard.js"></script>
+<script>
+'use strict';
+
+const state = {
+  vistaActual:  'tarjetas',
+  filtros:      {},
+  fechaDesde:   '',
+  fechaHasta:   '',
+  page:         1,
+  limit:        15,
+  editandoId:   null,
+  todasEmpresas: [],
+};
+
+// ─── Helpers de fecha ─────────────────────────────────────────────────────────
+function isoHoy() {
+  return new Date().toISOString().slice(0, 10);
+}
+function isoInicioAnio() {
+  return `${new Date().getFullYear()}-01-01`;
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  // Inicializar fechas: 1 ene del año en curso → hoy
+  const desde = document.getElementById('filtro-fecha-desde');
+  const hasta = document.getElementById('filtro-fecha-hasta');
+  if (desde) { desde.value = isoInicioAnio(); state.fechaDesde = isoInicioAnio(); }
+  if (hasta) { hasta.value = isoHoy();        state.fechaHasta = isoHoy(); }
+
+  await cargarEmpresas();
+
+  let timer;
+  document.getElementById('filtro-buscar')?.addEventListener('input', e => {
+    clearTimeout(timer);
+    timer = setTimeout(() => { state.filtros.buscar = e.target.value.trim(); state.page = 1; renderVista(); }, 350);
+  });
+  document.getElementById('filtro-activo')?.addEventListener('change', e => {
+    state.filtros.activo = e.target.value; state.page = 1; renderVista();
+  });
+
+  // Fechas — recargan del servidor al cambiar
+  let fechaTimer;
+  function onFechaChange() {
+    clearTimeout(fechaTimer);
+    fechaTimer = setTimeout(() => {
+      state.fechaDesde = document.getElementById('filtro-fecha-desde')?.value || '';
+      state.fechaHasta = document.getElementById('filtro-fecha-hasta')?.value || '';
+      state.page = 1;
+      cargarEmpresas();
+    }, 500);
+  }
+  document.getElementById('filtro-fecha-desde')?.addEventListener('change', onFechaChange);
+  document.getElementById('filtro-fecha-hasta')?.addEventListener('change', onFechaChange);
+
+  document.getElementById('btn-limpiar')?.addEventListener('click', limpiarFiltros);
+  document.getElementById('btn-nueva-empresa')?.addEventListener('click', abrirModalCrear);
+  document.getElementById('btn-guardar-empresa')?.addEventListener('click', guardarEmpresa);
+});
+
+// ─── Carga principal (stats) ──────────────────────────────────────────────────
+async function cargarEmpresas() {
+  // Indicador visual mientras recarga
+  const grid = document.getElementById('grid-empresas');
+  if (grid && state.vistaActual === 'tarjetas') {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:#94a3b8">Cargando…</div>`;
+  }
+  try {
+    state.todasEmpresas = await catalogosService.getEmpresasStats({
+      fechaDesde: state.fechaDesde,
+      fechaHasta: state.fechaHasta,
+    }) || [];
+    renderVista();
+  } catch (err) {
+    console.error(err);
+    toast.error('Error al cargar empresas');
+  }
+}
+
+// ─── Filtrar y enrutar a la vista activa ──────────────────────────────────────
+function renderVista() {
+  let rows = state.todasEmpresas;
+
+  if (state.filtros.buscar) {
+    const q = state.filtros.buscar.toLowerCase();
+    rows = rows.filter(e =>
+      e.razon_social?.toLowerCase().includes(q) ||
+      e.nombre_comercial?.toLowerCase().includes(q) ||
+      e.rfc?.toLowerCase().includes(q)
+    );
+  }
+  if (state.filtros.activo !== undefined && state.filtros.activo !== '') {
+    rows = rows.filter(e => String(e.activo) === state.filtros.activo);
+  }
+
+  const total = rows.length;
+  document.getElementById('contador-empresas').textContent =
+    `${total} empresa${total !== 1 ? 's' : ''}`;
+
+  if (state.vistaActual === 'tarjetas') {
+    renderTarjetas(rows);
+  } else {
+    renderTabla(rows);
+  }
+}
+
+// ─── Vista tarjetas ───────────────────────────────────────────────────────────
+function renderTarjetas(rows) {
+  const grid = document.getElementById('grid-empresas');
+  if (!grid) return;
+
+  if (!rows.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:48px;color:#94a3b8">
+      <div style="font-size:32px;margin-bottom:8px">🏢</div>
+      No se encontraron empresas con los filtros seleccionados.
+    </div>`;
+    return;
+  }
+
+  const MAX_ABIERTOS = 20;
+  grid.innerHTML = rows.map(e => {
+    const nombre   = e.nombre_comercial || e.razon_social;
+    const inicial  = nombre.charAt(0).toUpperCase();
+    const abiertos = parseInt(e.casos_abiertos)   || 0;
+    const activos  = parseInt(e.casos_activos)     || 0;
+    const pend     = parseInt(e.casos_pendientes)  || 0;
+    const criticos = parseInt(e.casos_criticos)    || 0;
+    const cerrados = parseInt(e.casos_cerrados)    || 0;
+
+    const pctCarga   = Math.min((abiertos / MAX_ABIERTOS) * 100, 100);
+    const claseCarga = pctCarga >= 80 ? 'alta' : pctCarga >= 40 ? 'media' : '';
+    const labelCarga = pctCarga >= 80 ? '🔴 Alta' : pctCarga >= 40 ? '🟡 Media' : '🟢 Normal';
+
+    return `
+      <div class="emp-card">
+        <div class="emp-avatar">${inicial}</div>
+        <div class="emp-info">
+          <div class="emp-nombre" title="${e.razon_social}">${nombre}</div>
+          ${e.nombre_comercial && e.nombre_comercial !== e.razon_social
+            ? `<div class="emp-sub">${e.razon_social}</div>`
+            : ''}
+          ${e.email_contacto ? `<div class="emp-sub">${e.email_contacto}</div>` : ''}
+
+          <div class="carga-bar" title="${abiertos} casos abiertos">
+            <div class="carga-fill ${claseCarga}" style="width:${pctCarga}%"></div>
+          </div>
+
+          <div class="emp-stats">
+            <div class="emp-stat emp-stat--activo">
+              <div class="emp-stat__num">${abiertos}</div>
+              <div class="emp-stat__label">Abiertos</div>
+            </div>
+            <div class="emp-stat emp-stat--pendiente">
+              <div class="emp-stat__num">${pend}</div>
+              <div class="emp-stat__label">Pendientes</div>
+            </div>
+            <div class="emp-stat emp-stat--critico">
+              <div class="emp-stat__num">${criticos}</div>
+              <div class="emp-stat__label">Críticos</div>
+            </div>
+            <div class="emp-stat">
+              <div class="emp-stat__num" style="color:#94a3b8">${cerrados}</div>
+              <div class="emp-stat__label">Cerrad.</div>
+            </div>
+          </div>
+
+          <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+            <button class="btn btn-ghost btn-sm" onclick="verCasos('${e.id}')">📋 Ver casos</button>
+            <button class="btn btn-ghost btn-sm" onclick="abrirModalEditar('${e.id}')" title="Editar empresa">✏️</button>
+            <span style="margin-left:auto;font-size:11px;color:#94a3b8">${labelCarga}</span>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ─── Vista tabla ──────────────────────────────────────────────────────────────
+function renderTabla(rows) {
+  const tbody = document.getElementById('tabla-empresas-body');
+  if (!tbody) return;
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:#94a3b8">No se encontraron empresas.</td></tr>`;
+    return;
+  }
+
+  const total  = rows.length;
+  const offset = (state.page - 1) * state.limit;
+  const pagina = rows.slice(offset, offset + state.limit);
+  const meta   = { total, page: state.page, limit: state.limit, pages: Math.ceil(total / state.limit) };
+
+  tbody.innerHTML = pagina.map(e => {
+    const nombre   = e.nombre_comercial || e.razon_social;
+    const inicial  = nombre.charAt(0).toUpperCase();
+    const abiertos = parseInt(e.casos_abiertos)  || 0;
+    const activos  = parseInt(e.casos_activos)   || 0;
+    const pend     = parseInt(e.casos_pendientes)|| 0;
+    const criticos = parseInt(e.casos_criticos)  || 0;
+
+    return `
+      <tr>
+        <td>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="empresa-logo">${inicial}</div>
+            <div>
+              <strong>${nombre}</strong>
+              ${e.nombre_comercial ? `<div style="font-size:12px;color:#64748b">${e.razon_social}</div>` : ''}
+            </div>
+          </div>
+        </td>
+        <td style="text-align:center">
+          <strong style="font-size:15px;color:#0891b2">${abiertos}</strong>
+        </td>
+        <td style="text-align:center;color:#0891b2">${activos}</td>
+        <td style="text-align:center;color:#d97706">${pend}</td>
+        <td style="text-align:center">
+          ${criticos > 0
+            ? `<span style="font-weight:700;color:#dc2626">${criticos}</span>`
+            : `<span style="color:#94a3b8">—</span>`}
+        </td>
+        <td style="font-family:monospace;font-size:12px;color:#475569">${e.rfc || '—'}</td>
+        <td style="color:#475569;font-size:12px">${e.email_contacto || '—'}</td>
+        <td style="text-align:center">
+          <div style="display:flex;gap:6px;justify-content:center">
+            <button class="btn btn-ghost btn-sm" onclick="verCasos('${e.id}')" title="Ver expedientes">📋</button>
+            <button class="btn btn-ghost btn-sm" onclick="abrirModalEditar('${e.id}')" title="Editar">✏️</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  table.renderPagination('#paginacion', meta, p => { state.page = p; renderTabla(rows); });
+}
+
+// ─── Toggle de vista ──────────────────────────────────────────────────────────
+function cambiarVista(vista) {
+  state.vistaActual = vista;
+  document.getElementById('vista-tarjetas').style.display = vista === 'tarjetas' ? '' : 'none';
+  document.getElementById('vista-tabla').style.display    = vista === 'tabla'    ? '' : 'none';
+  document.getElementById('btn-vista-tarjetas').classList.toggle('active', vista === 'tarjetas');
+  document.getElementById('btn-vista-tabla').classList.toggle('active',    vista === 'tabla');
+  renderVista();
+}
+
+// ─── Modal crear ──────────────────────────────────────────────────────────────
+function abrirModalCrear() {
+  state.editandoId = null;
+  limpiarFormEmpresa();
+  document.getElementById('modal-empresa-titulo').textContent = 'Nueva empresa';
+  document.getElementById('seccion-convenios').style.display = 'none';
+  modal.open('modal-empresa');
+}
+
+// ─── Modal editar ─────────────────────────────────────────────────────────────
+async function abrirModalEditar(id) {
+  try {
+    const e = await catalogosService.getEmpresa(id);
+    state.editandoId = id;
+    document.getElementById('modal-empresa-titulo').textContent = e.nombre_comercial || e.razon_social;
+    document.getElementById('e-razon-social').value     = e.razon_social     || '';
+    document.getElementById('e-nombre-comercial').value = e.nombre_comercial || '';
+    document.getElementById('e-rfc').value              = e.rfc              || '';
+    document.getElementById('e-email').value            = e.email_contacto   || '';
+    document.getElementById('e-telefono').value         = e.tel_contacto     || '';
+
+    const convenios = await catalogosService.getConvenios(id);
+    renderConvenios(convenios);
+    document.getElementById('seccion-convenios').style.display = 'block';
+    modal.open('modal-empresa');
+  } catch (err) {
+    toast.error('Error al cargar la empresa');
+  }
+}
+
+function renderConvenios(convenios) {
+  const lista = document.getElementById('lista-convenios');
+  if (!lista) return;
+  if (!convenios.length) {
+    lista.innerHTML = '<p style="color:#94a3b8;font-size:13px">Sin convenios registrados</p>';
+    return;
+  }
+  lista.innerHTML = convenios.map(c => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;
+                background:#f8fafc;border-radius:8px;margin-bottom:6px;font-size:13px">
+      <span><strong>${c.nombre}</strong>
+        ${c.fecha_inicio ? `<span style="color:#64748b"> · ${fmt.fecha(c.fecha_inicio)}</span>` : ''}
+      </span>
+      <span class="badge ${c.activo ? 'success' : ''}">${c.activo ? 'Activo' : 'Inactivo'}</span>
+    </div>`
+  ).join('');
+}
+
+// ─── Guardar empresa ──────────────────────────────────────────────────────────
+async function guardarEmpresa() {
+  const razon_social     = document.getElementById('e-razon-social').value.trim();
+  const nombre_comercial = document.getElementById('e-nombre-comercial').value.trim();
+  const rfc              = document.getElementById('e-rfc').value.trim();
+  const email_contacto   = document.getElementById('e-email').value.trim();
+  const tel_contacto     = document.getElementById('e-telefono').value.trim();
+
+  if (!razon_social) { toast.warning('La razón social es obligatoria'); return; }
+
+  const data = {
+    razon_social,
+    nombre_comercial: nombre_comercial || undefined,
+    rfc:              rfc              || undefined,
+    email_contacto:   email_contacto   || undefined,
+    tel_contacto:     tel_contacto     || undefined,
+  };
+
+  const btn = document.getElementById('btn-guardar-empresa');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+
+  try {
+    if (state.editandoId) {
+      await catalogosService.actualizarEmpresa(state.editandoId, data);
+      toast.success('Empresa actualizada');
+    } else {
+      await catalogosService.crearEmpresa(data);
+      toast.success('Empresa creada correctamente');
+    }
+    modal.close('modal-empresa');
+    limpiarFormEmpresa();
+    await cargarEmpresas();
+  } catch (err) {
+    toast.error(err.message || 'Error al guardar la empresa');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar';
+  }
+}
+
+// ─── Navegación ───────────────────────────────────────────────────────────────
+function verCasos(empresaId) {
+  window.location.href = `/bandeja.html?empresa_id=${empresaId}`;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function limpiarFiltros() {
+  state.filtros   = {};
+  state.page      = 1;
+  state.fechaDesde = isoInicioAnio();
+  state.fechaHasta = isoHoy();
+  ['filtro-buscar','filtro-activo'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const desde = document.getElementById('filtro-fecha-desde');
+  const hasta = document.getElementById('filtro-fecha-hasta');
+  if (desde) desde.value = state.fechaDesde;
+  if (hasta) hasta.value = state.fechaHasta;
+  cargarEmpresas();
+}
+
+function limpiarFormEmpresa() {
+  ['e-razon-social','e-nombre-comercial','e-rfc','e-email','e-telefono'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+}
+
+window.cambiarVista      = cambiarVista;
+window.verCasos          = verCasos;
+window.abrirModalEditar  = abrirModalEditar;
+</script>
+</body>
+</html>
