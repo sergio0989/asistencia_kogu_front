@@ -74,11 +74,11 @@ function renderExpediente(e) {
 
   // Abogado / proveedor asignado (columna real: proveedor_asignado_id)
   if (e.proveedor_asignado_id) {
-    setEl('abogado-nombre', e.abogado_nombre || '—');
-    setEl('abogado-tel',    e.abogado_tel ? fmt.telefono(e.abogado_tel) : '—');
-    setEl('abogado-email',  e.abogado_email || '—');
+    setEl('abogado-nombre', e.proveedor_nombre || '—');
+    setEl('abogado-tel',    e.proveedor_tel ? fmt.telefono(e.proveedor_tel) : '—');
+    setEl('abogado-email',  e.proveedor_email || '—');
     const av = document.getElementById('abogado-avatar-letra');
-    if (av && e.abogado_nombre) av.textContent = e.abogado_nombre.charAt(0).toUpperCase();
+    if (av && e.proveedor_nombre) av.textContent = e.proveedor_nombre.charAt(0).toUpperCase();
     document.getElementById('sin-abogado')?.classList.add('hidden');
     document.getElementById('con-abogado')?.classList.remove('hidden');
   } else {
@@ -592,7 +592,7 @@ function escDetalle(str) {
 
 async function asignarAbogado(proveedorId) {
   try {
-    await asistenciasService.asignarAbogado(expedienteId, proveedorId);
+    await asistenciasService.asignarProveedor(expedienteId, proveedorId);
     toast.success('Proveedor asignado correctamente');
     modal.close('modal-abogado');
     await cargarExpediente();

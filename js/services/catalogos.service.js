@@ -106,10 +106,6 @@ const catalogosService = {
     const qs = tipo_id ? `?tipo_id=${tipo_id}` : '';
     return api.get(`/catalogos/motivos-cierre${qs}`);
   },
-
-  async getAbogados() {
-    return api.get('/catalogos/abogados');
-  },
 };
 
 window.catalogosService = catalogosService;

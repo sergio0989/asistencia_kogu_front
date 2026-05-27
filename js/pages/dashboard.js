@@ -1,7 +1,7 @@
 'use strict';
 /**
  * dashboard.js — KPIs ejecutivos y resumen operativo.
- * Depende de: api.js, asistencias.service.js, catalogos.service.js, fmt, toast
+ * Depende de: api.js, asistencias.service.js, proveedores.service.js, fmt, toast
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -29,19 +29,20 @@ function renderReloj() {
 // ─── Carga principal ──────────────────────────────────────────────────────────
 async function cargarDashboard() {
   try {
-    const [kpis, recientes, criticos, abogados, porCanal] = await Promise.all([
+    const [kpis, recientes, criticos, proveedoresResp, porCanal] = await Promise.all([
       asistenciasService.getKpis(),
       asistenciasService.listar({ limit: 8, page: 1 }),
       asistenciasService.listar({ nivel_urgencia: 'critico', estatus_macro: 'activo', limit: 5, page: 1 }),
-      catalogosService.getAbogados(),
+      proveedoresService.listar({ todos: 1, limit: 4 }),
       cargarConteoCanales(),
     ]);
+    const proveedores = proveedoresResp?.data ?? [];
 
     renderKpis(kpis);
     renderUrgenciaBar(kpis);
     renderCanales(porCanal);
     renderAlertas(criticos?.data || []);
-    renderTopAbogados(abogados || []);
+    renderTopProveedores(proveedores);
     renderTablaRecientes(recientes?.data || []);
     renderTimestamp();
 
@@ -59,7 +60,7 @@ function renderKpis(k) {
   setEl('kpi-cerrados-mes', k.cerrados_mes       ?? '—');
   setEl('kpi-criticos',     k.criticos_abiertos  ?? '—');
   setEl('kpi-criticos-top', k.criticos_abiertos  ?? '—');
-  setEl('kpi-sin-abogado',  k.sin_abogado        ?? '—');
+  setEl('kpi-sin-abogado',  k.sin_proveedor      ?? '—');
   setEl('kpi-total',        k.total              ?? '—');
   setEl('kpi-tiempo-prom',
     k.tiempo_promedio_horas != null ? `${k.tiempo_promedio_horas}h` : '—');
@@ -138,12 +139,12 @@ function renderAlertas(rows) {
   }
 
   container.innerHTML = rows.map(r => {
-    const sinAbogado = !r.abogado_nombre;
+    const sinAbogado = !r.proveedor_nombre;
     const clase = sinAbogado ? 'alerta-row danger' : 'alerta-row';
     const icono = sinAbogado ? '🔴' : '🟡';
     const motivo = sinAbogado
       ? 'Sin asignación · Requiere abogado inmediato'
-      : `${r.abogado_nombre} · ${fmt.estatus(r.estatus_operativo).label}`;
+      : `${r.proveedor_nombre} · ${fmt.estatus(r.estatus_operativo).label}`;
     return `
       <div class="${clase}" onclick="verExpediente('${r.id}')">
         <span style="font-size:18px;flex-shrink:0">${icono}</span>
@@ -158,31 +159,47 @@ function renderAlertas(rows) {
 }
 
 // ─── Top abogados ─────────────────────────────────────────────────────────────
-function renderTopAbogados(abogados) {
+function renderTopProveedores(proveedores) {
   const container = document.getElementById('top-abogados-list');
   if (!container) return;
 
-  const top = abogados.slice(0, 4);
+  // Ordenar por carga (casos_activos) descendente; los ausentes cuentan como 0
+  const top = [...proveedores]
+    .sort((a, b) => (parseInt(b.casos_activos) || 0) - (parseInt(a.casos_activos) || 0))
+    .slice(0, 4);
   if (!top.length) {
     container.innerHTML = '<p style="color:#94a3b8;font-size:12px">Sin proveedores activos</p>';
     return;
   }
 
   const avClases = ['av-blue', 'av-green', 'av-orange', 'av-blue'];
-  container.innerHTML = top.map((a, i) => `
+  container.innerHTML = top.map((p, i) => {
+    const nombre     = (p.nombre || '—').replace('Lic. ', '');
+    const tieneCarga = p.casos_activos != null;          // el shape del backend trae el campo
+    const casos      = parseInt(p.casos_activos) || 0;
+    const contacto   = p.email || (p.telefono ? fmt.telefono(p.telefono) : '');
+    // Línea secundaria: carga si hay casos; si está ausente o es 0, cae al contacto
+    const secundaria = (tieneCarga && casos > 0)
+      ? `${casos} caso${casos !== 1 ? 's' : ''} activo${casos !== 1 ? 's' : ''}`
+      : contacto;
+    // Badge solo si el shape trae casos_activos; si no, sin badge (no rompe)
+    const badge = tieneCarga
+      ? `<span class="badge ${casos >= 5 ? 'danger' : casos >= 3 ? 'warn' : 'success'}">
+          ${casos === 0 ? 'Disponible' : casos >= 5 ? 'Alta carga' : 'Activo'}
+        </span>`
+      : '';
+    return `
     <div class="trend-row">
       <div style="display:flex;align-items:center;gap:8px">
-        <div class="avatar ${avClases[i % 4]}">${a.nombre.charAt(0)}</div>
+        <div class="avatar ${avClases[i % 4]}">${(p.nombre || '?').charAt(0)}</div>
         <div>
-          <div style="font-size:12px;font-weight:600">${a.nombre.replace('Lic. ', '')}</div>
-          <div style="font-size:11px;color:#94a3b8">${a.casos_activos} caso${a.casos_activos != 1 ? 's' : ''} activo${a.casos_activos != 1 ? 's' : ''}</div>
+          <div style="font-size:12px;font-weight:600">${nombre}</div>
+          ${secundaria ? `<div style="font-size:11px;color:#94a3b8">${secundaria}</div>` : ''}
         </div>
       </div>
-      <span class="badge ${parseInt(a.casos_activos) >= 5 ? 'danger' : parseInt(a.casos_activos) >= 3 ? 'warn' : 'success'}">
-        ${parseInt(a.casos_activos) === 0 ? 'Disponible' : parseInt(a.casos_activos) >= 5 ? 'Alta carga' : 'Activo'}
-      </span>
-    </div>`
-  ).join('');
+      ${badge}
+    </div>`;
+  }).join('');
 }
 
 // ─── Tabla de casos recientes ─────────────────────────────────────────────────
