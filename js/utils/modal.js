@@ -53,6 +53,8 @@ const modal = {
   },
 
   setBody(id, html) {
+    // Inyector genérico: recibe HTML ya construido. La sanitización de los
+    // datos dinámicos es responsabilidad de quien arma `html` (con fmt.esc).
     const el = document.querySelector(`#${id} .modal-body`);
     if (el) el.innerHTML = html;
   },
@@ -64,6 +66,7 @@ const modal = {
       overlay = document.createElement('div');
       overlay.id = '_confirm-modal';
       overlay.className = 'modal-backdrop';
+      // estático: el título y el mensaje se inyectan con textContent (abajo), no aquí.
       overlay.innerHTML = `
         <div class="modal-box" style="max-width:420px">
           <div class="modal-header">

@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const banner = document.createElement('div');
       banner.id = 'filtro-abogado-banner';
       banner.style.cssText = 'background:#ecfeff;border:1px solid #a5f3fc;border-radius:8px;padding:8px 14px;font-size:12px;color:#0e7490;display:flex;align-items:center;justify-content:space-between;margin-top:8px';
+      // estático: dos mensajes fijos seleccionados por un booleano
       banner.innerHTML = `<span>⚖️ ${esProveedor ? 'Mostrando casos del proveedor seleccionado' : 'Mostrando casos del abogado seleccionado'}</span>
         <button onclick="quitarFiltroAbogado()" style="background:none;border:none;cursor:pointer;font-size:12px;color:#0e7490;font-weight:700">✕ Quitar filtro</button>`;
       topbar.appendChild(banner);
@@ -106,6 +107,7 @@ async function cargarBandeja() {
   // Skeleton mientras carga
   const tbody = document.getElementById('tabla-bandeja-body');
   if (tbody) {
+    // estático: placeholders de carga
     tbody.innerHTML = Array.from({ length: 8 }).map(() => `
       <tr class="skeleton-row">
         ${Array.from({ length: 9 }).map(() => `<td><div class="skeleton-line"></div></td>`).join('')}
@@ -131,6 +133,7 @@ async function cargarBandeja() {
   } catch (err) {
     console.error('Error cargando bandeja:', err);
     toast.error('Error al cargar expedientes');
+    // estático: mensaje de error fijo
     if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:40px;color:#dc2626">
       Error al cargar datos. Verifica la conexión con el servidor.</td></tr>`;
   } finally {
@@ -144,6 +147,7 @@ function renderFilas(rows) {
   if (!tbody) return;
 
   if (!rows.length) {
+    // estático: estado vacío
     tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:48px;color:#94a3b8">
       <div style="font-size:32px;margin-bottom:8px">📭</div>
       No se encontraron expedientes con los filtros seleccionados.
@@ -157,26 +161,28 @@ function renderFilas(rows) {
     const canal  = fmt.canal(r.canal_origen);
     const sinAb  = !r.proveedor_nombre;
 
+    // r.id es el UUID propio del expediente (no captura libre) → se usa tal cual
+    // en los handlers onclick. Los demás datos de la API se escapan con fmt.esc.
     return `
-      <tr class="urgencia-row--${r.nivel_urgencia}" style="cursor:pointer" data-id="${r.id}">
+      <tr class="urgencia-row--${fmt.esc(r.nivel_urgencia)}" style="cursor:pointer" data-id="${fmt.esc(r.id)}">
         <td>
-          <span class="folio-link" onclick="verExpediente('${r.id}')">${r.folio}</span>
+          <span class="folio-link" onclick="verExpediente('${r.id}')">${fmt.esc(r.folio)}</span>
           ${sinAb && r.nivel_urgencia === 'critico'
             ? '<div class="row-meta" style="color:#dc2626">⚠️ Sin asignar</div>'
             : ''}
         </td>
         <td>
-          <strong style="font-size:13px">${r.conductor_nombre}</strong>
-          <div class="row-meta">${r.siniestro_ref || ''}</div>
+          <strong style="font-size:13px">${fmt.esc(r.conductor_nombre)}</strong>
+          <div class="row-meta">${fmt.esc(r.siniestro_ref || '')}</div>
         </td>
         <td style="text-align:center">
-          <span class="canal-icon" title="${canal.label}">${canal.icon}</span>
+          <span class="canal-icon" title="${fmt.esc(canal.label)}">${canal.icon}</span>
         </td>
-        <td style="font-size:12px">${r.empresa_nombre || '<span style="color:#94a3b8">—</span>'}</td>
+        <td style="font-size:12px">${r.empresa_nombre ? fmt.esc(r.empresa_nombre) : '<span style="color:#94a3b8">—</span>'}</td>
         <td>${fmt.badgeHtml(urg.label, urg.class)}</td>
         <td>${fmt.badgeHtml(est.label, est.class)}</td>
         <td style="font-size:12px">${r.proveedor_nombre
-          ? `<span style="color:#0f172a;font-weight:600">${r.proveedor_nombre}</span>`
+          ? `<span style="color:#0f172a;font-weight:600">${fmt.esc(r.proveedor_nombre)}</span>`
           : '<span style="color:#94a3b8">Sin asignar</span>'
         }</td>
         <td style="font-size:11px;color:#64748b">${fmt.tiempoRelativo(r.created_at)}</td>

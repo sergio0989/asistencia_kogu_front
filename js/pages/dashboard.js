@@ -88,6 +88,7 @@ function renderUrgenciaBar(k) {
     { label: 'Bajo',    color: '#16a34a', dotClass: 'dot-bajo',    count: Math.max(0, total - criticos - Math.round(total * 0.25) - Math.round(total * 0.45)) },
   ];
 
+  // estático: `niveles` es un arreglo fijo (labels/colores hardcodeados, counts numéricos)
   container.innerHTML = niveles.map(n => {
     const pct = Math.max(1, Math.round((n.count / total) * 100));
     return `
@@ -133,23 +134,25 @@ function renderAlertas(rows) {
   if (!container) return;
 
   if (!rows.length) {
+    // estático: sin alertas
     container.innerHTML = `<div style="padding:16px;text-align:center;color:#64748b;font-size:13px">
       ✅ Sin alertas críticas activas</div>`;
     return;
   }
 
+  // r.id: UUID propio → tal cual en onclick. Demás datos de API escapados.
   container.innerHTML = rows.map(r => {
     const sinAbogado = !r.proveedor_nombre;
     const clase = sinAbogado ? 'alerta-row danger' : 'alerta-row';
     const icono = sinAbogado ? '🔴' : '🟡';
     const motivo = sinAbogado
       ? 'Sin asignación · Requiere abogado inmediato'
-      : `${r.proveedor_nombre} · ${fmt.estatus(r.estatus_operativo).label}`;
+      : `${fmt.esc(r.proveedor_nombre)} · ${fmt.esc(fmt.estatus(r.estatus_operativo).label)}`;
     return `
       <div class="${clase}" onclick="verExpediente('${r.id}')">
         <span style="font-size:18px;flex-shrink:0">${icono}</span>
         <div>
-          <strong style="font-size:12px">${r.folio}</strong> — ${r.conductor_nombre}
+          <strong style="font-size:12px">${fmt.esc(r.folio)}</strong> — ${fmt.esc(r.conductor_nombre)}
           <div style="color:#92400e;font-size:11px;margin-top:2px">
             ${motivo} · ${fmt.tiempoRelativo(r.created_at)}
           </div>
@@ -168,6 +171,7 @@ function renderTopProveedores(proveedores) {
     .sort((a, b) => (parseInt(b.casos_activos) || 0) - (parseInt(a.casos_activos) || 0))
     .slice(0, 4);
   if (!top.length) {
+    // estático
     container.innerHTML = '<p style="color:#94a3b8;font-size:12px">Sin proveedores activos</p>';
     return;
   }
@@ -191,10 +195,10 @@ function renderTopProveedores(proveedores) {
     return `
     <div class="trend-row">
       <div style="display:flex;align-items:center;gap:8px">
-        <div class="avatar ${avClases[i % 4]}">${(p.nombre || '?').charAt(0)}</div>
+        <div class="avatar ${avClases[i % 4]}">${fmt.esc((p.nombre || '?').charAt(0))}</div>
         <div>
-          <div style="font-size:12px;font-weight:600">${nombre}</div>
-          ${secundaria ? `<div style="font-size:11px;color:#94a3b8">${secundaria}</div>` : ''}
+          <div style="font-size:12px;font-weight:600">${fmt.esc(nombre)}</div>
+          ${secundaria ? `<div style="font-size:11px;color:#94a3b8">${fmt.esc(secundaria)}</div>` : ''}
         </div>
       </div>
       ${badge}
@@ -208,6 +212,7 @@ function renderTablaRecientes(rows) {
   if (!tbody) return;
 
   if (!rows.length) {
+    // estático: estado vacío con enlace fijo
     tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:32px;color:#94a3b8">
       Sin expedientes — <a href="/nuevo-caso.html" style="color:#0891b2">Crear el primero</a>
     </td></tr>`;
@@ -218,10 +223,10 @@ function renderTablaRecientes(rows) {
     const urg = fmt.urgencia(r.nivel_urgencia);
     const est = fmt.estatus(r.estatus_operativo);
     return `
-      <tr onclick="verExpediente('${r.id}')" style="cursor:pointer" class="urgencia-row--${r.nivel_urgencia}">
-        <td><strong style="color:#0891b2;font-family:ui-monospace,monospace;font-size:11px">${r.folio}</strong></td>
-        <td>${r.conductor_nombre}</td>
-        <td style="font-size:12px">${r.empresa_nombre || '—'}</td>
+      <tr onclick="verExpediente('${r.id}')" style="cursor:pointer" class="urgencia-row--${fmt.esc(r.nivel_urgencia)}">
+        <td><strong style="color:#0891b2;font-family:ui-monospace,monospace;font-size:11px">${fmt.esc(r.folio)}</strong></td>
+        <td>${fmt.esc(r.conductor_nombre)}</td>
+        <td style="font-size:12px">${r.empresa_nombre ? fmt.esc(r.empresa_nombre) : '—'}</td>
         <td>${fmt.badgeHtml(urg.label, urg.class)}</td>
         <td>${fmt.badgeHtml(est.label, est.class)}</td>
         <td style="color:#94a3b8;font-size:12px">${fmt.tiempoRelativo(r.created_at)}</td>

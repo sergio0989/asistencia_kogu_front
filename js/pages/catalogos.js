@@ -66,6 +66,7 @@ async function renderFilas(rows) {
   if (!tbody) return;
 
   if (!rows.length) {
+    // estático: estado vacío
     tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8">
       No se encontraron empresas.</td></tr>`;
     return;
@@ -80,30 +81,31 @@ async function renderFilas(rows) {
     } catch { conveniosPorEmpresa[e.id] = []; }
   }));
 
+  // e.id: UUID propio → tal cual en onclick. Demás datos de API escapados.
   tbody.innerHTML = rows.map(e => {
     const inicial  = (e.nombre_comercial || e.razon_social || '?').charAt(0).toUpperCase();
     const convenios = conveniosPorEmpresa[e.id] || [];
     const convHtml  = convenios.length
-      ? convenios.map(c => `<span class="convenio-tag">${c.nombre}</span>`).join('')
+      ? convenios.map(c => `<span class="convenio-tag">${fmt.esc(c.nombre)}</span>`).join('')
       : '<span style="color:#94a3b8;font-size:12px">Sin convenios</span>';
     const estado = e.activo
       ? '<span class="badge success">● Activa</span>'
       : '<span class="badge" style="background:#f1f5f9;color:#94a3b8">● Inactiva</span>';
 
     return `
-      <tr data-id="${e.id}">
+      <tr data-id="${fmt.esc(e.id)}">
         <td>
           <div style="display:flex;align-items:center;gap:10px">
-            <div class="empresa-logo">${inicial}</div>
+            <div class="empresa-logo">${fmt.esc(inicial)}</div>
             <div>
-              <strong>${e.razon_social}</strong>
-              ${e.nombre_comercial ? `<div style="font-size:12px;color:#64748b">${e.nombre_comercial}</div>` : ''}
+              <strong>${fmt.esc(e.razon_social)}</strong>
+              ${e.nombre_comercial ? `<div style="font-size:12px;color:#64748b">${fmt.esc(e.nombre_comercial)}</div>` : ''}
             </div>
           </div>
         </td>
-        <td style="font-family:monospace;font-size:12px;color:#475569">${e.rfc || '—'}</td>
-        <td style="color:#475569;font-size:12px">${e.email_contacto || '—'}</td>
-        <td style="color:#475569">${e.tel_contacto ? fmt.telefono(e.tel_contacto) : '—'}</td>
+        <td style="font-family:monospace;font-size:12px;color:#475569">${e.rfc ? fmt.esc(e.rfc) : '—'}</td>
+        <td style="color:#475569;font-size:12px">${e.email_contacto ? fmt.esc(e.email_contacto) : '—'}</td>
+        <td style="color:#475569">${e.tel_contacto ? fmt.esc(fmt.telefono(e.tel_contacto)) : '—'}</td>
         <td>${convHtml}</td>
         <td>${estado}</td>
         <td style="text-align:center">
@@ -151,13 +153,14 @@ function renderConvenios(empresaId, convenios) {
   const lista = document.getElementById('lista-convenios');
   if (!lista) return;
   if (!convenios.length) {
+    // estático
     lista.innerHTML = '<p style="color:#94a3b8;font-size:13px">Sin convenios registrados</p>';
     return;
   }
   lista.innerHTML = convenios.map(c => `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;
                 background:#f8fafc;border-radius:8px;margin-bottom:6px;font-size:13px">
-      <span><strong>${c.nombre}</strong>
+      <span><strong>${fmt.esc(c.nombre)}</strong>
         ${c.fecha_inicio ? `<span style="color:#64748b"> · ${fmt.fecha(c.fecha_inicio)}</span>` : ''}
       </span>
       <span class="badge ${c.activo ? 'success' : ''}">${c.activo ? 'Activo' : 'Inactivo'}</span>

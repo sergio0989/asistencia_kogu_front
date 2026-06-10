@@ -131,6 +131,7 @@ function renderBitacora(items) {
   if (!container) return;
 
   if (!items.length) {
+    // estático
     container.innerHTML = '<p style="color:var(--text-muted);text-align:center">Sin movimientos registrados</p>';
     return;
   }
@@ -152,10 +153,10 @@ function renderBitacora(items) {
         <div class="bitacora-item__icon">${icon}</div>
         <div class="bitacora-item__content">
           <div class="bitacora-item__header">
-            <strong>${item.usuario_nombre || 'Sistema'}</strong>
+            <strong>${fmt.esc(item.usuario_nombre || 'Sistema')}</strong>
             <span class="bitacora-item__time">${fmt.tiempoRelativo(item.created_at)}</span>
           </div>
-          <div class="bitacora-item__desc">${item.descripcion}</div>
+          <div class="bitacora-item__desc">${fmt.esc(item.descripcion)}</div>
         </div>
       </div>`;
   }).join('');
@@ -174,8 +175,8 @@ function renderHistorial(items) {
         ${fmt.estatusBadge(h.estatus_nuevo)}
       </div>
       <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
-        ${h.usuario_nombre} · ${fmt.tiempoRelativo(h.created_at)}
-        ${h.comentario ? `<br><em>${h.comentario}</em>` : ''}
+        ${fmt.esc(h.usuario_nombre)} · ${fmt.tiempoRelativo(h.created_at)}
+        ${h.comentario ? `<br><em>${fmt.esc(h.comentario)}</em>` : ''}
       </div>
     </div>`
   ).join('') || '<p style="color:var(--text-muted)">Sin cambios de estatus</p>';
@@ -187,13 +188,15 @@ function renderDocumentos(docs) {
   if (!container) return;
 
   if (!docs.length) {
+    // estático
     container.innerHTML = '<p style="color:var(--text-muted);text-align:center">Sin documentos adjuntos</p>';
     return;
   }
 
+  // d.id: UUID propio → tal cual en onclick; el nombre de archivo se escapa.
   container.innerHTML = docs.map(d => `
     <div class="documento-item">
-      <span class="documento-item__nombre">📎 ${d.nombre}</span>
+      <span class="documento-item__nombre">📎 ${fmt.esc(d.nombre)}</span>
       <button class="btn btn-ghost btn-sm" onclick="descargarDocumento('${d.id}')">Ver</button>
     </div>`
   ).join('');
@@ -271,7 +274,7 @@ function inicializarEventos() {
     const empId = e.target.value;
     const sel = document.getElementById('edit-convenio-id');
     if (!sel) return;
-    sel.innerHTML = '<option value="">— Sin convenio —</option>';
+    sel.innerHTML = '<option value="">— Sin convenio —</option>'; // estático (opciones se agregan con createElement/textContent)
     if (!empId) return;
     try {
       const convenios = await catalogosService.getConvenios(empId);
@@ -304,6 +307,7 @@ function renderSeccionVehiculo(veh) {
   if (!cont) return;
 
   if (!veh || !Object.values(veh).some(v => v)) {
+    // estático: estado vacío
     cont.innerHTML = `
       <div style="text-align:center;padding:20px 0;color:#94a3b8">
         <div style="font-size:28px;margin-bottom:6px">🚗</div>
@@ -312,10 +316,11 @@ function renderSeccionVehiculo(veh) {
     return;
   }
 
+  // label es fijo (Marca/Modelo/…); el valor del vehículo se escapa.
   const row = (label, val) => val
     ? `<div class="data-field">
          <div class="data-field__label">${label}</div>
-         <div class="data-field__value">${escDetalle(String(val))}</div>
+         <div class="data-field__value">${fmt.esc(String(val))}</div>
        </div>`
     : '';
 
@@ -369,7 +374,7 @@ async function abrirModalSiniestro() {
 
   // Poblar empresas
   const selEmp = document.getElementById('edit-empresa-id');
-  selEmp.innerHTML = '<option value="">— Sin empresa —</option>';
+  selEmp.innerHTML = '<option value="">— Sin empresa —</option>'; // estático (opciones con createElement/textContent)
   try {
     const empresas = await catalogosService.getEmpresas();
     empresas.forEach(emp => {
@@ -383,7 +388,7 @@ async function abrirModalSiniestro() {
 
   // Poblar convenios si hay empresa
   const selConv = document.getElementById('edit-convenio-id');
-  selConv.innerHTML = '<option value="">— Sin convenio —</option>';
+  selConv.innerHTML = '<option value="">— Sin convenio —</option>'; // estático (opciones con createElement/textContent)
   if (e.empresa_id) {
     try {
       const convenios = await catalogosService.getConvenios(e.empresa_id);
@@ -399,7 +404,7 @@ async function abrirModalSiniestro() {
 
   // Poblar subtipos del tipo del expediente
   const selSub = document.getElementById('edit-subtipo-id');
-  selSub.innerHTML = '<option value="">— Sin subtipo —</option>';
+  selSub.innerHTML = '<option value="">— Sin subtipo —</option>'; // estático (opciones con createElement/textContent)
   if (e.tipo_id) {
     try {
       const subtipos = await catalogosService.getSubtipos(e.tipo_id);
@@ -483,6 +488,7 @@ const asig = {
 async function cargarAbogadosModal() {
   const list = document.getElementById('lista-abogados');
   if (!list) return;
+  // estático: estado de carga
   list.innerHTML = '<div style="text-align:center;padding:32px;color:#94a3b8">Cargando proveedores…</div>';
 
   asig.busqueda = '';
@@ -517,6 +523,7 @@ async function cargarAbogadosModal() {
     renderProveedoresModal();
 
   } catch {
+    // estático: mensaje de error fijo
     if (list) list.innerHTML = '<div style="color:#dc2626;text-align:center;padding:24px;font-size:13px">Error al cargar proveedores</div>';
     toast.error('Error al cargar proveedores');
   }
@@ -539,6 +546,7 @@ function renderProveedoresModal() {
   const rows   = q ? fuente.filter(p => p.nombre?.toLowerCase().includes(q)) : fuente;
 
   if (!rows.length) {
+    // estático: estado vacío (mensajes fijos)
     list.innerHTML = `<div style="text-align:center;padding:28px;color:#94a3b8;font-size:13px">
       <div style="font-size:28px;margin-bottom:6px">${q ? '🔍' : '⚖️'}</div>
       ${q ? 'Sin coincidencias. Intenta con otro nombre.' : 'Sin proveedores disponibles en este segmento.'}
@@ -546,6 +554,7 @@ function renderProveedoresModal() {
     return;
   }
 
+  // p.id: UUID propio → tal cual en onclick; nombre/email/estatus escapados.
   list.innerHTML = rows.map(p => {
     const casos     = parseInt(p.casos_activos) || 0;
     const estExp    = p.estatus_expediente || 'incompleto';
@@ -555,18 +564,18 @@ function renderProveedoresModal() {
     const labelCarga = casos >= 8 ? `🔴 ${casos} casos` : casos >= 5 ? `🟡 ${casos} casos` : `🟢 ${casos} caso${casos === 1 ? '' : 's'}`;
     const inicial    = (p.nombre || '?').charAt(0).toUpperCase();
     const warningHtml = bloqueado
-      ? `<div style="font-size:10px;color:#dc2626;font-weight:700;margin-top:2px">🚫 Exp. ${estExp} — no asignable</div>`
+      ? `<div style="font-size:10px;color:#dc2626;font-weight:700;margin-top:2px">🚫 Exp. ${fmt.esc(estExp)} — no asignable</div>`
       : porVencer
-        ? `<div style="font-size:10px;color:#d97706;font-weight:600;margin-top:2px">⚠️ Expediente por vencer: ${(p.fecha_vencimiento_expediente||'').slice(0,10)}</div>`
+        ? `<div style="font-size:10px;color:#d97706;font-weight:600;margin-top:2px">⚠️ Expediente por vencer: ${fmt.esc((p.fecha_vencimiento_expediente||'').slice(0,10))}</div>`
         : '';
     const onclick = bloqueado ? '' : `onclick="asignarAbogado('${p.id}')"`;
     return `
       <div class="abogado-card ${bloqueado ? 'abogado-card--bloqueado' : ''} ${porVencer ? 'abogado-card--por-vencer' : ''}"
            ${onclick}>
-        <div class="abogado-avatar">${inicial}</div>
+        <div class="abogado-avatar">${fmt.esc(inicial)}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escDetalle(p.nombre)}</div>
-          ${p.email ? `<div style="font-size:11px;color:#64748b">${escDetalle(p.email)}</div>` : ''}
+          <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fmt.esc(p.nombre)}</div>
+          ${p.email ? `<div style="font-size:11px;color:#64748b">${fmt.esc(p.email)}</div>` : ''}
           ${warningHtml}
         </div>
         <span class="carga-pill carga-pill--${claseCarga}">${labelCarga}</span>
@@ -586,10 +595,6 @@ function cambiarSegmento(seg) {
   renderProveedoresModal();
 }
 
-function escDetalle(str) {
-  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
 async function asignarAbogado(proveedorId) {
   try {
     await asistenciasService.asignarProveedor(expedienteId, proveedorId);
@@ -607,7 +612,7 @@ async function cargarMotivosCierre() {
     const select  = document.getElementById('motivo_cierre_id');
     if (!select) return;
     select.innerHTML = '<option value="">— Seleccionar motivo —</option>' +
-      motivos.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+      motivos.map(m => `<option value="${fmt.esc(m.id)}">${fmt.esc(m.nombre)}</option>`).join('');
   } catch { /* silencioso */ }
 }
 
@@ -683,6 +688,7 @@ async function renderCuestionario(e) {
 
   // Sin respuestas: estado vacío
   if (!respuestas.length) {
+    // estático: estado vacío
     container.innerHTML = `
       <div style="text-align:center;padding:20px 0;color:#94a3b8">
         <div style="font-size:28px;margin-bottom:6px">📝</div>
@@ -712,20 +718,22 @@ async function renderCuestionario(e) {
     // Sin esquema: mostrar respuestas en modo genérico clave-valor
     const items = Object.entries(vals);
     if (!items.length) {
+      // estático
       container.innerHTML = '<p style="color:#94a3b8;font-size:12px;text-align:center;padding:16px">Sin datos registrados</p>';
       return;
     }
+    // Respuestas guardadas (input del usuario): clave y valor escapados.
     container.innerHTML = `<div class="data-grid">` +
       items.map(([k, v]) => `
         <div class="data-field">
-          <div class="data-field__label" style="font-size:11px">${k}</div>
-          <div class="data-field__value" style="font-size:13px">${Array.isArray(v) ? v.join(', ') : v}</div>
+          <div class="data-field__label" style="font-size:11px">${fmt.esc(k)}</div>
+          <div class="data-field__value" style="font-size:13px">${fmt.esc(Array.isArray(v) ? v.join(', ') : v)}</div>
         </div>`
       ).join('') + `</div>`;
     return;
   }
 
-  // Con esquema: renderizar sección por sección con los valores guardados
+  // Con esquema: label del esquema JSON y respuestas guardadas → escapados.
   container.innerHTML = esquema.secciones.map(sec => {
     const campos = sec.campos.map(c => {
       const val = vals[c.id];
@@ -734,9 +742,9 @@ async function renderCuestionario(e) {
       const boolTxt = isBool ? (val ? '✅ Sí' : '✗ No') : null;
       return `
         <div class="data-field">
-          <div class="data-field__label" style="font-size:11px">${c.label}</div>
+          <div class="data-field__label" style="font-size:11px">${fmt.esc(c.label)}</div>
           <div class="data-field__value" style="font-size:13px;font-weight:${val ? '600' : '400'};color:${val ? '#0f172a' : '#94a3b8'}">
-            ${isBool ? boolTxt : display}
+            ${isBool ? boolTxt : fmt.esc(display)}
           </div>
         </div>`;
     }).join('');
@@ -744,7 +752,7 @@ async function renderCuestionario(e) {
     return `
       <div style="margin-bottom:14px">
         <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #f1f5f9">
-          ${sec.titulo}
+          ${fmt.esc(sec.titulo)}
         </div>
         <div class="data-grid">${campos}</div>
       </div>`;
@@ -765,6 +773,7 @@ async function renderCuestionario(e) {
  */
 async function abrirModalCuestionario() {
   const formContainer = document.getElementById('modal-cuestionario-form');
+  // estático: estado de carga
   if (formContainer) formContainer.innerHTML = '<div style="text-align:center;padding:32px;color:#94a3b8">Cargando formulario…</div>';
 
   modal.open('modal-cuestionario');
@@ -788,6 +797,7 @@ async function abrirModalCuestionario() {
     }
 
     if (!esquema?.secciones) {
+      // estático: sin cuestionario configurado
       formContainer.innerHTML = `
         <div style="text-align:center;padding:40px;color:#94a3b8">
           <div style="font-size:32px;margin-bottom:8px">⚠️</div>
@@ -809,9 +819,10 @@ async function abrirModalCuestionario() {
     if (tituloModal) tituloModal.textContent = `Cuestionario — ${expediente?.tipo_nombre || 'Caso'}`;
 
     // Renderizar formulario con valores pre-rellenados
+    // Esquema JSON (API): título escapado; cada campo se escapa en renderCampoCuestionario.
     formContainer.innerHTML = esquema.secciones.map(sec => `
       <div style="margin-bottom:20px">
-        <div class="form-section__title">${sec.titulo}</div>
+        <div class="form-section__title">${fmt.esc(sec.titulo)}</div>
         <div class="form-grid">
           ${sec.campos.map(c => renderCampoCuestionario(c, valoresActuales[c.id])).join('')}
         </div>
@@ -820,6 +831,7 @@ async function abrirModalCuestionario() {
 
   } catch (err) {
     console.error('Error cargando cuestionario:', err);
+    // estático: mensaje de error fijo
     if (formContainer) formContainer.innerHTML = '<div style="text-align:center;padding:32px;color:#dc2626;font-size:13px">Error al cargar el formulario</div>';
   }
 }
@@ -828,15 +840,20 @@ async function abrirModalCuestionario() {
  * Renderiza un campo del cuestionario con su valor pre-rellenado.
  */
 function renderCampoCuestionario(campo, valor) {
-  const req = campo.requerido ? '<span style="color:var(--danger)">*</span>' : '';
-  const id  = `cq_${campo.id}`;
-  const v   = valor ?? '';
+  // Esquema JSON (API) + valores guardados (input del usuario): todo escapado
+  // — labels, opciones, valores y los atributos id/name/maxlength.
+  const req   = campo.requerido ? '<span style="color:var(--danger)">*</span>' : '';
+  const id    = `cq_${campo.id}`;
+  const idA   = fmt.esc(id);
+  const nameA = fmt.esc(campo.id);
+  const label = fmt.esc(campo.label);
+  const v     = valor ?? '';
 
   if (campo.tipo === 'texto' || campo.tipo === 'hora') {
     return `<div class="form-group">
-      <label for="${id}">${campo.label} ${req}</label>
-      <input type="text" id="${id}" name="${campo.id}" value="${escHtml(String(v))}"
-        maxlength="${campo.maxLength || 255}" class="form-control">
+      <label for="${idA}">${label} ${req}</label>
+      <input type="text" id="${idA}" name="${nameA}" value="${fmt.esc(String(v))}"
+        maxlength="${fmt.esc(campo.maxLength || 255)}" class="form-control">
     </div>`;
   }
   if (campo.tipo === 'fecha') {
@@ -852,29 +869,29 @@ function renderCampoCuestionario(campo, valor) {
       valFecha = valFecha.slice(0, 10);               // quitar la hora si no se necesita
     }
     return `<div class="form-group">
-      <label for="${id}">${campo.label} ${req}</label>
-      <input type="${inputT}" id="${id}" name="${campo.id}" value="${escHtml(valFecha)}" class="form-control">
+      <label for="${idA}">${label} ${req}</label>
+      <input type="${inputT}" id="${idA}" name="${nameA}" value="${fmt.esc(valFecha)}" class="form-control">
     </div>`;
   }
   if (campo.tipo === 'numero') {
     return `<div class="form-group">
-      <label for="${id}">${campo.label} ${req}</label>
-      <input type="number" id="${id}" name="${campo.id}" value="${escHtml(String(v))}"
-        min="${campo.min || ''}" max="${campo.max || ''}" class="form-control">
+      <label for="${idA}">${label} ${req}</label>
+      <input type="number" id="${idA}" name="${nameA}" value="${fmt.esc(String(v))}"
+        min="${fmt.esc(campo.min || '')}" max="${fmt.esc(campo.max || '')}" class="form-control">
     </div>`;
   }
   if (campo.tipo === 'boolean') {
     return `<div class="form-group form-group--checkbox">
-      <label><input type="checkbox" id="${id}" name="${campo.id}" ${v ? 'checked' : ''}> ${campo.label}</label>
+      <label><input type="checkbox" id="${idA}" name="${nameA}" ${v ? 'checked' : ''}> ${label}</label>
     </div>`;
   }
   if (campo.tipo === 'select') {
     const opts = campo.opciones.map(o =>
-      `<option value="${escHtml(o)}" ${o === v ? 'selected' : ''}>${escHtml(o)}</option>`
+      `<option value="${fmt.esc(o)}" ${o === v ? 'selected' : ''}>${fmt.esc(o)}</option>`
     ).join('');
     return `<div class="form-group">
-      <label for="${id}">${campo.label} ${req}</label>
-      <select id="${id}" name="${campo.id}" class="form-control">
+      <label for="${idA}">${label} ${req}</label>
+      <select id="${idA}" name="${nameA}" class="form-control">
         <option value="">— Seleccionar —</option>${opts}
       </select>
     </div>`;
@@ -882,21 +899,21 @@ function renderCampoCuestionario(campo, valor) {
   if (campo.tipo === 'checkboxes') {
     const seleccionados = Array.isArray(v) ? v : [];
     return `<div class="form-group form-group--full">
-      <label>${campo.label} ${req}</label>
+      <label>${label} ${req}</label>
       <div class="checkbox-group">
         ${campo.opciones.map(o => `
           <label class="checkbox-item">
-            <input type="checkbox" name="${campo.id}" value="${escHtml(o)}" ${seleccionados.includes(o) ? 'checked' : ''}>
-            ${escHtml(o)}
+            <input type="checkbox" name="${nameA}" value="${fmt.esc(o)}" ${seleccionados.includes(o) ? 'checked' : ''}>
+            ${fmt.esc(o)}
           </label>`).join('')}
       </div>
     </div>`;
   }
   if (campo.tipo === 'textarea') {
     return `<div class="form-group form-group--full">
-      <label for="${id}">${campo.label} ${req}</label>
-      <textarea id="${id}" name="${campo.id}" rows="3" maxlength="${campo.maxLength || 2000}"
-        class="form-control">${escHtml(String(v))}</textarea>
+      <label for="${idA}">${label} ${req}</label>
+      <textarea id="${idA}" name="${nameA}" rows="3" maxlength="${fmt.esc(campo.maxLength || 2000)}"
+        class="form-control">${fmt.esc(String(v))}</textarea>
     </div>`;
   }
   return '';
@@ -947,15 +964,6 @@ async function guardarCuestionario() {
   }
 }
 
-/** Escapa HTML para evitar XSS en los values del formulario */
-function escHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function setEl(id, value) {
   const el = document.getElementById(id);
@@ -963,6 +971,8 @@ function setEl(id, value) {
 }
 
 function setHtml(id, html) {
+  // Setter genérico: recibe HTML ya construido (badges de fmt.*, que escapan
+  // su contenido). La sanitización es responsabilidad de quien arma `html`.
   const el = document.getElementById(id);
   if (el) el.innerHTML = html;
 }

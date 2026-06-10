@@ -52,33 +52,38 @@ function renderFilas(rows) {
   const tbody = document.querySelector('#tabla-usuarios-body');
   if (!tbody) return;
   if (!rows.length) {
+    // estático: estado vacío
     tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8">
       No se encontraron usuarios con los filtros seleccionados.</td></tr>`;
     return;
   }
+  // u.id: UUID propio → tal cual en onclick. Demás datos de API escapados.
   tbody.innerHTML = rows.map(u => {
-    const rolesHtml = (u.roles || []).map(r => `<span class="role-chip role-${r}">${r}</span>`).join(' ');
+    const rolesHtml = (u.roles || []).map(r => `<span class="role-chip role-${fmt.esc(r)}">${fmt.esc(r)}</span>`).join(' ');
     const estado    = u.activo
       ? '<span><span class="status-dot dot-active"></span>Activo</span>'
       : '<span style="color:#94a3b8"><span class="status-dot dot-inactive"></span>Inactivo</span>';
     const inicial   = (u.nombre || '?').charAt(0).toUpperCase();
+    // El nombre va también dentro de un string JS en onclick: primero se escapa
+    // para JS (comilla simple) y luego para HTML (fmt.esc) por el doble contexto.
+    const nombreJs  = fmt.esc(String(u.nombre ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
     return `
-      <tr data-id="${u.id}">
+      <tr data-id="${fmt.esc(u.id)}">
         <td>
           <div style="display:flex;align-items:center;gap:10px">
-            <div class="user-avatar">${inicial}</div>
-            <strong>${u.nombre}</strong>
+            <div class="user-avatar">${fmt.esc(inicial)}</div>
+            <strong>${fmt.esc(u.nombre)}</strong>
           </div>
         </td>
-        <td style="color:#475569">${u.email}</td>
-        <td style="color:#475569">${u.telefono ? fmt.telefono(u.telefono) : '—'}</td>
+        <td style="color:#475569">${fmt.esc(u.email)}</td>
+        <td style="color:#475569">${u.telefono ? fmt.esc(fmt.telefono(u.telefono)) : '—'}</td>
         <td>${rolesHtml || '—'}</td>
         <td>${estado}</td>
         <td style="color:#94a3b8;font-size:12px">${fmt.fecha(u.created_at)}</td>
         <td style="text-align:center">
           <div style="display:flex;gap:6px;justify-content:center">
             <button class="btn btn-ghost btn-sm" onclick="abrirModalEditar('${u.id}')" title="Editar">✏️</button>
-            <button class="btn btn-ghost btn-sm" onclick="abrirModalReset('${u.id}','${u.nombre.replace(/'/g,"\\'")}')  " title="Restablecer contraseña">🔑</button>
+            <button class="btn btn-ghost btn-sm" onclick="abrirModalReset('${u.id}','${nombreJs}')  " title="Restablecer contraseña">🔑</button>
             <button class="btn btn-ghost btn-sm" onclick="toggleActivo('${u.id}',${u.activo})" title="${u.activo ? 'Desactivar' : 'Activar'}">
               ${u.activo ? '🔴' : '🟢'}
             </button>
