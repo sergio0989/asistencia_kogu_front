@@ -11,9 +11,9 @@ Trabajo sobre `/Users/sergioj/Documents/Claude/Projects/Kogu Asistencia/kogu-asi
 
 ## Control de avance
 
-| Brief | Descripción                                  | Estado    | Fecha | Commit | Notas |
-|-------|----------------------------------------------|-----------|-------|--------|-------|
-| Bf-04 | Front P1 Promotoría (clientes/pólizas/renov.)| Pendiente |       |        |       |
+| Brief | Descripción                                  | Estado      | Fecha      | Commit | Notas |
+|-------|----------------------------------------------|-------------|------------|--------|-------|
+| Bf-04 | Front P1 Promotoría (clientes/pólizas/renov.)| En revisión | 2026-06-10 | `feat/bf04-front-promotoria` | Páginas `comercial/` (clientes, cliente ficha360, polizas, poliza detalle, renovaciones, agentes) + servicios + sidebar con visibilidad por rol + tarjeta de dashboard. Shapes verificados contra el API local (B2-02). Toda interpolación dinámica usa `fmt.esc()`; 422→mensajes por campo (`formErrors`); 403→toast+redirección; scoping del lado del servidor. Verificado contra API local: flujo completo (cliente→póliza→recibos→bandeja→renovación→KPIs), scoping de agente.demo (solo su cartera, 403 en ajeno) y visibilidad de sidebar por rol, guards de formulario (consentimiento DP-07, cancelar sin motivo) y render sin errores/escapado. Pendiente merge a `main` tras revisión externa. |
 
 ---
 
