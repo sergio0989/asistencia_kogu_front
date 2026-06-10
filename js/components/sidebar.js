@@ -13,6 +13,9 @@
 
 (function () {
   const OPERATIVOS = ['admin', 'supervisor', 'operador', 'cabina'];
+  // Roles con acceso comercial (el API hace el scoping). Excluye cabina y
+  // abogado: el backend les devuelve 403, así que tampoco ven los enlaces.
+  const COMERCIAL = ['admin', 'supervisor', 'operador', 'agente', 'promotor'];
 
   // [href, etiqueta, grupo, rolesPermitidos?] — sin rolesPermitidos = visible a todos
   const NAV_LINKS = [
@@ -20,9 +23,9 @@
     ['/bandeja.html',                      '📋 Bandeja de casos',   'operacion',  OPERATIVOS],
     ['/nuevo-caso.html',                   '➕ Nuevo caso',         'operacion',  OPERATIVOS],
 
-    ['/comercial/clientes.html',           '🧑‍💼 Clientes',         'promotoria'],
-    ['/comercial/polizas.html',            '📑 Pólizas',            'promotoria'],
-    ['/comercial/renovaciones.html',       '🔁 Renovaciones',       'promotoria'],
+    ['/comercial/clientes.html',           '🧑‍💼 Clientes',         'promotoria', COMERCIAL],
+    ['/comercial/polizas.html',            '📑 Pólizas',            'promotoria', COMERCIAL],
+    ['/comercial/renovaciones.html',       '🔁 Renovaciones',       'promotoria', COMERCIAL],
     ['/comercial/agentes.html',            '🎫 Agentes',            'promotoria', ['admin', 'supervisor', 'promotor']],
 
     ['/usuarios/lista.html',               '👥 Usuarios',           'gestion',    OPERATIVOS],
