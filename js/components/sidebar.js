@@ -65,6 +65,6 @@
   // Inyectar en el placeholder (el script se carga al final del body, el elemento ya existe)
   const placeholder = document.getElementById('sidebar-placeholder');
   if (placeholder) {
-    placeholder.innerHTML = html;
+    placeholder.innerHTML = html; // estático: NAV_LINKS y textos hardcodeados (user-name/role los llena auth.guard via textContent)
   }
 })();

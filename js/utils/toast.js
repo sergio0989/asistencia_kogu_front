@@ -58,7 +58,9 @@
       'cursor:pointer',
     ].join(';');
 
-    t.innerHTML = `${ICONS[type]} &nbsp;${message}`;
+    // `message` suele ser texto fijo, pero también mensajes de error de la API:
+    // se escapa. El ícono y &nbsp; son estáticos.
+    t.innerHTML = `${ICONS[type]} &nbsp;${fmt.esc(message)}`;
     t.onclick = () => remove(t);
     container.appendChild(t);
 

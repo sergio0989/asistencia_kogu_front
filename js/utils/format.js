@@ -4,6 +4,21 @@
 
 const fmt = {
 
+  /**
+   * Escapa una cadena para interpolarla de forma segura en innerHTML,
+   * incluyendo dentro de atributos (" y '). Es la ÚNICA función de escape
+   * del proyecto: todo dato de la API o input del usuario que se inserte en
+   * un template string destinado a innerHTML debe pasar por aquí.
+   */
+  esc(v) {
+    return String(v ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  },
+
   fecha(isoString) {
     if (!isoString) return '—';
     return new Date(isoString).toLocaleDateString('es-MX', {
@@ -81,7 +96,10 @@ const fmt = {
   },
 
   badgeHtml(text, cssClass) {
-    return `<span class="badge ${cssClass}">${text}</span>`;
+    // `text` puede ser un valor crudo de la API (fallback de los mapas de
+    // estatus/canal/urgencia) → se escapa. `cssClass` siempre es una clase
+    // interna estática.
+    return `<span class="badge ${cssClass}">${fmt.esc(text)}</span>`;
   },
 
   urgenciaBadge(nivel) {

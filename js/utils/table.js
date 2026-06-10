@@ -22,7 +22,7 @@ const table = {
       tbody.innerHTML = `
         <tr>
           <td colspan="${columns.length}" style="text-align:center;padding:40px;color:var(--text-muted)">
-            ${emptyMessage}
+            ${fmt.esc(emptyMessage)}
           </td>
         </tr>`;
       return;
@@ -30,10 +30,12 @@ const table = {
 
     tbody.innerHTML = rows.map((row, idx) => {
       const cells = columns.map(col => {
-        const value = col.render ? col.render(row) : (row[col.key] ?? '—');
+        // Con col.render() el HTML lo arma (y escapa) el llamador; sin render
+        // se interpola el dato crudo de la API → se escapa aquí.
+        const value = col.render ? col.render(row) : fmt.esc(row[col.key] ?? '—');
         return `<td>${value}</td>`;
       }).join('');
-      return `<tr data-id="${row.id || idx}">${cells}</tr>`;
+      return `<tr data-id="${fmt.esc(row.id || idx)}">${cells}</tr>`;
     }).join('');
   },
 
@@ -79,13 +81,14 @@ const table = {
     </button>`;
 
     html += `</div>`;
-    container.innerHTML = html;
+    container.innerHTML = html; // estático: solo números de página y controles
   },
 
   // Muestra skeleton loader mientras carga
   showSkeleton(tbodySelector, cols = 5, rows = 8) {
     const tbody = document.querySelector(tbodySelector);
     if (!tbody) return;
+    // estático: solo placeholders de carga
     tbody.innerHTML = Array.from({ length: rows }).map(() =>
       `<tr class="skeleton-row">${Array.from({ length: cols }).map(() =>
         `<td><div class="skeleton-line"></div></td>`
