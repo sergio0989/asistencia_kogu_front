@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Renovaciones — Kogu Asistencias</title>
+  <link rel="stylesheet" href="/styles/styles.css">
+  <style>
+    .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+    .kpi-box{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px}
+    .kpi-box .kpi-label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8}
+    .kpi-box .kpi-value{font-size:22px;font-weight:800;color:#0f172a;margin-top:4px}
+    .sem{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+    .sem-rojo{background:#dc2626}.sem-naranja{background:#ea580c}.sem-amarillo{background:#ca8a04}.sem-verde{background:#16a34a}.sem-vencida{background:#7f1d1d}
+    .mini-table{width:100%;border-collapse:collapse;font-size:13px}
+    .mini-table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;padding:8px;border-bottom:1px solid #f1f5f9}
+    .mini-table td{padding:8px;border-bottom:1px solid #f8fafc}
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar" id="sidebar-placeholder"></aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="eyebrow">Promotoría</div>
+        <h1>Renovaciones</h1>
+        <p>Pólizas en ventana de vencimiento y KPIs de cartera</p>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="kpi-row" id="kpi-row"></div>
+
+      <div class="card data-section">
+        <div class="data-section__title">Bandeja de renovaciones (≤ 45 días)</div>
+        <div id="bandeja"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL: Renovar -->
+<div class="modal-backdrop" id="modal-renovar" style="display:none">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-header"><h3 class="modal-title">Renovar póliza</h3>
+      <button class="modal-close" onclick="modal.close('modal-renovar')">&times;</button></div>
+    <div class="modal-body">
+      <p style="color:#64748b;font-size:12px;margin-bottom:12px">Renovando <strong id="ren-anterior"></strong>. La nueva póliza quedará encadenada a la actual.</p>
+      <form id="form-renovar" autocomplete="off"><div class="form-grid">
+        <div class="form-group"><label>Nuevo número <span style="color:#dc2626">*</span></label><input type="text" id="r-numero" class="form-control" maxlength="50"></div>
+        <div class="form-group"><label>Vigencia inicio</label><input type="date" id="r-vig-inicio" class="form-control"></div>
+        <div class="form-group"><label>Vigencia fin <span style="color:#dc2626">*</span></label><input type="date" id="r-vig-fin" class="form-control"></div>
+        <div class="form-group"><label>Prima total</label><input type="number" id="r-prima" class="form-control" step="0.01" min="0"></div>
+      </div></form>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-renovar')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-confirmar-renovar">Renovar</button></div>
+  </div>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/services/api.js"></script>
+<script src="/js/services/auth.service.js"></script>
+<script src="/js/services/polizas.service.js"></script>
+<script src="/js/utils/format.js"></script>
+<script src="/js/utils/toast.js"></script>
+<script src="/js/utils/modal.js"></script>
+<script src="/js/utils/formErrors.js"></script>
+<script src="/js/components/sidebar.js"></script>
+<script src="/js/utils/auth.guard.js"></script>
+<script src="/js/pages/renovaciones.js"></script>
+</body>
+</html>
