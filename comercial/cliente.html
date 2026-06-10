@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Ficha de cliente — Kogu Asistencias</title>
+  <link rel="stylesheet" href="/styles/styles.css">
+  <style>
+    .badge-info{background:#dbeafe;color:#1e40af}
+    .badge-success{background:#dcfce7;color:#166534}
+    .badge-secondary{background:#f1f5f9;color:#64748b}
+    .badge-warning{background:#fef9c3;color:#92400e}
+    .badge-danger{background:#fee2e2;color:#991b1b}
+    .mini-table{width:100%;border-collapse:collapse;font-size:13px}
+    .mini-table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;padding:6px 8px;border-bottom:1px solid #f1f5f9}
+    .mini-table td{padding:8px;border-bottom:1px solid #f8fafc}
+    .mini-table tr[data-link]{cursor:pointer}
+    .mini-table tr[data-link]:hover{background:#f8fafc}
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar" id="sidebar-placeholder"></aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="eyebrow"><a href="/comercial/clientes.html" style="color:#0891b2;text-decoration:none">← Clientes</a> · Promotoría</div>
+        <h1 id="cliente-nombre">Ficha de cliente</h1>
+        <p id="cliente-sub">—</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-ghost" id="btn-editar-cliente">✏️ Editar</button>
+        <button class="btn btn-ghost" id="btn-subir-doc">📎 Subir documento</button>
+        <button class="btn btn-primary" id="btn-nueva-poliza">➕ Nueva póliza</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- DATOS -->
+      <div class="card data-section">
+        <div class="data-section__title">Datos del cliente</div>
+        <div class="data-grid" id="cliente-datos"></div>
+      </div>
+
+      <!-- PÓLIZAS -->
+      <div class="card data-section">
+        <div class="data-section__title">Pólizas</div>
+        <div id="cliente-polizas"></div>
+      </div>
+
+      <!-- RECIBOS PRÓXIMOS -->
+      <div class="card data-section">
+        <div class="data-section__title">Recibos próximos</div>
+        <div id="cliente-recibos"></div>
+      </div>
+
+      <!-- SINIESTROS / ASISTENCIAS -->
+      <div class="card data-section">
+        <div class="data-section__title">Siniestros y asistencias ligadas</div>
+        <div id="cliente-siniestros"></div>
+      </div>
+
+      <!-- DOCUMENTOS -->
+      <div class="card data-section">
+        <div class="data-section__title">Documentos</div>
+        <div id="cliente-documentos"></div>
+      </div>
+
+    </div><!-- /content -->
+  </main>
+</div>
+
+<input type="file" id="input-file" style="display:none">
+
+<!-- MODAL: Editar cliente -->
+<div class="modal-backdrop" id="modal-editar" style="display:none">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-header">
+      <h3 class="modal-title">Editar cliente</h3>
+      <button class="modal-close" onclick="modal.close('modal-editar')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="form-editar" autocomplete="off">
+        <div class="form-grid">
+          <div class="form-group form-group--full">
+            <label>Nombre / Razón social <span style="color:#dc2626">*</span></label>
+            <input type="text" id="e-nombre" class="form-control" maxlength="200">
+          </div>
+          <div class="form-group"><label>RFC</label><input type="text" id="e-rfc" class="form-control" maxlength="13"></div>
+          <div class="form-group"><label>Teléfono</label><input type="text" id="e-telefono" class="form-control" maxlength="20"></div>
+          <div class="form-group"><label>Email</label><input type="email" id="e-email" class="form-control" maxlength="150"></div>
+          <div class="form-group"><label>Origen</label><input type="text" id="e-origen" class="form-control" maxlength="50"></div>
+          <div class="form-group form-group--full"><label>Notas</label><textarea id="e-notas" class="form-control" rows="2" maxlength="4000"></textarea></div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-editar')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-editar">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/services/api.js"></script>
+<script src="/js/services/auth.service.js"></script>
+<script src="/js/services/clientes.service.js"></script>
+<script src="/js/utils/format.js"></script>
+<script src="/js/utils/toast.js"></script>
+<script src="/js/utils/modal.js"></script>
+<script src="/js/utils/formErrors.js"></script>
+<script src="/js/components/sidebar.js"></script>
+<script src="/js/utils/auth.guard.js"></script>
+<script src="/js/pages/cliente.js"></script>
+</body>
+</html>

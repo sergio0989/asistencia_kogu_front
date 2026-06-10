@@ -106,6 +106,16 @@ const catalogosService = {
     const qs = tipo_id ? `?tipo_id=${tipo_id}` : '';
     return api.get(`/catalogos/motivos-cierre${qs}`);
   },
+
+  // ── PROMOTORÍA (Bf-04) ───────────────────────────────────────────────────
+
+  async getRamos() {
+    return api.get('/catalogos/ramos');
+  },
+
+  async getPromotorias() {
+    return api.get('/catalogos/promotorias');
+  },
 };
 
 window.catalogosService = catalogosService;

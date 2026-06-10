@@ -95,6 +95,13 @@ const fmt = {
     return folio || '—';
   },
 
+  // Moneda MXN (Bf-04). Los montos del API llegan como string ("12500.00").
+  moneda(v) {
+    const n = Number(v);
+    if (v === null || v === undefined || v === '' || Number.isNaN(n)) return '—';
+    return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+  },
+
   badgeHtml(text, cssClass) {
     // `text` puede ser un valor crudo de la API (fallback de los mapas de
     // estatus/canal/urgencia) → se escapa. `cssClass` siempre es una clase
@@ -109,6 +116,38 @@ const fmt = {
 
   estatusBadge(estatus_operativo) {
     const e = fmt.estatus(estatus_operativo);
+    return fmt.badgeHtml(e.label, e.class);
+  },
+
+  // ── Promotoría (Bf-04) ──────────────────────────────────────────────────────
+  estadoCliente(estado) {
+    const map = {
+      prospecto: { label: 'Prospecto', class: 'badge-info'      },
+      cliente:   { label: 'Cliente',   class: 'badge-success'   },
+      inactivo:  { label: 'Inactivo',  class: 'badge-secondary' },
+    };
+    return map[estado] || { label: estado || '—', class: 'badge-secondary' };
+  },
+
+  estadoClienteBadge(estado) {
+    const e = fmt.estadoCliente(estado);
+    return fmt.badgeHtml(e.label, e.class);
+  },
+
+  // Estatus de póliza (incluye los calculados por_renovar/vencida).
+  estatusPoliza(estatus) {
+    const map = {
+      vigente:     { label: 'Vigente',     class: 'badge-success'   },
+      por_renovar: { label: 'Por renovar', class: 'badge-warning'   },
+      vencida:     { label: 'Vencida',     class: 'badge-danger'    },
+      renovada:    { label: 'Renovada',    class: 'badge-info'      },
+      cancelada:   { label: 'Cancelada',   class: 'badge-secondary' },
+    };
+    return map[estatus] || { label: estatus || '—', class: 'badge-secondary' };
+  },
+
+  estatusPolizaBadge(estatus) {
+    const e = fmt.estatusPoliza(estatus);
     return fmt.badgeHtml(e.label, e.class);
   },
 };

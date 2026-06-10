@@ -10,7 +10,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   await cargarDashboard();
   setInterval(cargarDashboard, 60_000);
+
+  cargarCarteraCard();   // Bf-04: tarjeta de cartera (solo si el API da acceso comercial)
 });
+
+// ─── Tarjeta de cartera (Promotoría, Bf-04) ───────────────────────────────────
+async function cargarCarteraCard() {
+  const card = document.getElementById('cartera-card');
+  if (!card || !window.polizasService) return;
+  try {
+    const k = await polizasService.getKpis();
+    const item = (label, value) => `
+      <div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8">${label}</div>
+        <div style="font-size:20px;font-weight:800;color:#0f172a">${value}</div>
+      </div>`;
+    document.getElementById('cartera-kpis').innerHTML =
+      item('Pólizas vigentes', fmt.esc(k.vigentes ?? 0)) +
+      item('Por renovar (45d)', fmt.esc(k.por_renovar_45 ?? 0)) +
+      item('Recibos vencidos', fmt.esc(k.recibos_vencidos ?? 0));
+    card.style.display = '';   // visible solo si el usuario tiene acceso a la cartera
+  } catch {
+    // Sin acceso comercial (403) o error: la tarjeta queda oculta.
+  }
+}
 
 // ─── Reloj y fecha en topbar ──────────────────────────────────────────────────
 function renderReloj() {

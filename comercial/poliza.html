@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Póliza — Kogu Asistencias</title>
+  <link rel="stylesheet" href="/styles/styles.css">
+  <style>
+    .badge-info{background:#dbeafe;color:#1e40af}
+    .badge-success{background:#dcfce7;color:#166534}
+    .badge-secondary{background:#f1f5f9;color:#64748b}
+    .badge-warning{background:#fef9c3;color:#92400e}
+    .badge-danger{background:#fee2e2;color:#991b1b}
+    .mini-table{width:100%;border-collapse:collapse;font-size:13px}
+    .mini-table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;padding:6px 8px;border-bottom:1px solid #f1f5f9}
+    .mini-table td{padding:8px;border-bottom:1px solid #f8fafc}
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar" id="sidebar-placeholder"></aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="eyebrow"><a href="/comercial/polizas.html" style="color:#0891b2;text-decoration:none">← Pólizas</a> · Promotoría</div>
+        <h1 id="pol-numero">Póliza</h1>
+        <p id="pol-sub">—</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-ghost" id="btn-editar">✏️ Editar</button>
+        <button class="btn btn-primary" id="btn-renovar">🔁 Renovar</button>
+        <button class="btn btn-ghost" id="btn-cancelar" style="color:#991b1b">✖ Cancelar</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="card data-section">
+        <div class="data-section__title">Datos de la póliza</div>
+        <div class="data-grid" id="pol-datos"></div>
+      </div>
+
+      <div class="card data-section">
+        <div class="data-section__title">Recibos</div>
+        <div id="pol-recibos"></div>
+      </div>
+
+      <div class="card data-section">
+        <div class="data-section__title" style="display:flex;justify-content:space-between;align-items:center">
+          <span>Endosos</span>
+          <button class="btn btn-ghost btn-sm" id="btn-nuevo-endoso">＋ Nuevo endoso</button>
+        </div>
+        <div id="pol-endosos"></div>
+      </div>
+
+      <div class="card data-section">
+        <div class="data-section__title" style="display:flex;justify-content:space-between;align-items:center">
+          <span>Documentos</span>
+          <button class="btn btn-ghost btn-sm" id="btn-subir-doc">📎 Subir</button>
+        </div>
+        <div id="pol-documentos"></div>
+      </div>
+
+      <div class="card data-section">
+        <div class="data-section__title">Bitácora</div>
+        <div id="pol-bitacora"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<input type="file" id="input-file" style="display:none">
+
+<!-- MODAL: Editar -->
+<div class="modal-backdrop" id="modal-editar" style="display:none">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-header"><h3 class="modal-title">Editar póliza</h3>
+      <button class="modal-close" onclick="modal.close('modal-editar')">&times;</button></div>
+    <div class="modal-body"><form id="form-editar" autocomplete="off"><div class="form-grid">
+      <div class="form-group"><label>Número de póliza</label><input type="text" id="e-numero" class="form-control" maxlength="50"></div>
+      <div class="form-group"><label>Producto</label><input type="text" id="e-producto" class="form-control" maxlength="150"></div>
+      <div class="form-group"><label>Prima total</label><input type="number" id="e-prima" class="form-control" step="0.01" min="0"></div>
+      <div class="form-group"><label>% Comisión</label><input type="number" id="e-comision" class="form-control" step="0.01" min="0" max="100"></div>
+      <div class="form-group form-group--full"><label>Notas</label><textarea id="e-notas" class="form-control" rows="2" maxlength="4000"></textarea></div>
+    </div></form></div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-editar')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-editar">Guardar</button></div>
+  </div>
+</div>
+
+<!-- MODAL: Renovar -->
+<div class="modal-backdrop" id="modal-renovar" style="display:none">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-header"><h3 class="modal-title">Renovar póliza</h3>
+      <button class="modal-close" onclick="modal.close('modal-renovar')">&times;</button></div>
+    <div class="modal-body">
+      <p style="color:#64748b;font-size:12px;margin-bottom:12px">La nueva póliza quedará encadenada a la actual (<span id="ren-anterior"></span>).</p>
+      <form id="form-renovar" autocomplete="off"><div class="form-grid">
+        <div class="form-group"><label>Nuevo número <span style="color:#dc2626">*</span></label><input type="text" id="r-numero" class="form-control" maxlength="50"></div>
+        <div class="form-group"><label>Vigencia inicio</label><input type="date" id="r-vig-inicio" class="form-control"></div>
+        <div class="form-group"><label>Vigencia fin <span style="color:#dc2626">*</span></label><input type="date" id="r-vig-fin" class="form-control"></div>
+        <div class="form-group"><label>Prima total</label><input type="number" id="r-prima" class="form-control" step="0.01" min="0"></div>
+        <div class="form-group"><label>Forma de pago</label><select id="r-forma-pago" class="form-control">
+          <option value="">(igual que la anterior)</option><option value="anual">Anual</option><option value="semestral">Semestral</option>
+          <option value="trimestral">Trimestral</option><option value="mensual">Mensual</option></select></div>
+      </div></form>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-renovar')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-confirmar-renovar">Renovar</button></div>
+  </div>
+</div>
+
+<!-- MODAL: Cancelar -->
+<div class="modal-backdrop" id="modal-cancelar" style="display:none">
+  <div class="modal-box" style="max-width:440px">
+    <div class="modal-header"><h3 class="modal-title">Cancelar póliza</h3>
+      <button class="modal-close" onclick="modal.close('modal-cancelar')">&times;</button></div>
+    <div class="modal-body"><div class="form-group">
+      <label>Motivo de cancelación <span style="color:#dc2626">*</span></label>
+      <textarea id="cancel-motivo" class="form-control" rows="3" maxlength="500" placeholder="Indica el motivo (obligatorio)"></textarea></div></div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-cancelar')">Volver</button>
+      <button class="btn btn-danger" id="btn-confirmar-cancelar">Cancelar póliza</button></div>
+  </div>
+</div>
+
+<!-- MODAL: Endoso -->
+<div class="modal-backdrop" id="modal-endoso" style="display:none">
+  <div class="modal-box" style="max-width:480px">
+    <div class="modal-header"><h3 class="modal-title">Nuevo endoso</h3>
+      <button class="modal-close" onclick="modal.close('modal-endoso')">&times;</button></div>
+    <div class="modal-body"><form id="form-endoso" autocomplete="off"><div class="form-grid">
+      <div class="form-group form-group--full"><label>Tipo <span style="color:#dc2626">*</span></label>
+        <input type="text" id="end-tipo" class="form-control" maxlength="50" placeholder="cambio_vehiculo, beneficiarios…"></div>
+      <div class="form-group form-group--full"><label>Descripción <span style="color:#dc2626">*</span></label>
+        <textarea id="end-descripcion" class="form-control" rows="2" maxlength="2000"></textarea></div>
+      <div class="form-group"><label>Fecha</label><input type="date" id="end-fecha" class="form-control"></div>
+      <div class="form-group"><label>Documento (opcional)</label><input type="file" id="end-archivo" class="form-control"></div>
+    </div></form></div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-endoso')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-endoso">Registrar endoso</button></div>
+  </div>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/services/api.js"></script>
+<script src="/js/services/auth.service.js"></script>
+<script src="/js/services/polizas.service.js"></script>
+<script src="/js/utils/format.js"></script>
+<script src="/js/utils/toast.js"></script>
+<script src="/js/utils/modal.js"></script>
+<script src="/js/utils/formErrors.js"></script>
+<script src="/js/components/sidebar.js"></script>
+<script src="/js/utils/auth.guard.js"></script>
+<script src="/js/pages/poliza.js"></script>
+</body>
+</html>

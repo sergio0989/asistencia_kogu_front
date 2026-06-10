@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Clientes — Kogu Asistencias</title>
+  <link rel="stylesheet" href="/styles/styles.css">
+  <style>
+    .filters-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+    .filters-bar input,.filters-bar select{height:36px;padding:0 12px;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;background:#fff}
+    .filters-bar input{min-width:220px}
+    .cli-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;background:#dcfce7;color:#166534;flex-shrink:0}
+    .badge-info{background:#dbeafe;color:#1e40af}
+    .badge-success{background:#dcfce7;color:#166534}
+    .badge-secondary{background:#f1f5f9;color:#64748b}
+    .badge-warning{background:#fef9c3;color:#92400e}
+    .badge-danger{background:#fee2e2;color:#991b1b}
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar" id="sidebar-placeholder"></aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="eyebrow">Promotoría</div>
+        <h1>Clientes</h1>
+        <p>Cartera de clientes y prospectos</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button class="btn btn-primary" id="btn-nuevo-cliente">➕ Nuevo cliente</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <div class="filters-bar">
+        <input type="text" id="filtro-buscar" placeholder="🔍  Nombre, teléfono o RFC…">
+        <select id="filtro-estado">
+          <option value="">Todos los estados</option>
+          <option value="prospecto">Prospecto</option>
+          <option value="cliente">Cliente</option>
+          <option value="inactivo">Inactivo</option>
+        </select>
+        <select id="filtro-agente" style="display:none">
+          <option value="">Todos los agentes</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" id="btn-limpiar">Limpiar</button>
+        <span id="contador-clientes" style="margin-left:auto;font-size:13px;color:#64748b"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table style="width:100%">
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Contacto</th>
+              <th>Estado</th>
+              <th style="text-align:center">Pólizas</th>
+              <th>Agente</th>
+              <th>Alta</th>
+              <th style="text-align:center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-clientes-body"></tbody>
+        </table>
+      </div>
+
+      <div id="paginacion" style="display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:14px;font-size:13px"></div>
+
+    </div><!-- /content -->
+  </main>
+</div>
+
+<!-- MODAL: Crear / Editar cliente -->
+<div class="modal-backdrop" id="modal-cliente" style="display:none">
+  <div class="modal-box" style="max-width:560px">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-cliente-titulo">Nuevo cliente</h3>
+      <button class="modal-close" onclick="modal.close('modal-cliente')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="form-cliente" autocomplete="off">
+        <div class="form-grid">
+          <div class="form-group form-group--full">
+            <label>Nombre / Razón social <span style="color:#dc2626">*</span></label>
+            <input type="text" id="c-nombre" class="form-control" maxlength="200" required>
+          </div>
+          <div class="form-group">
+            <label>Tipo de persona</label>
+            <select id="c-tipo-persona" class="form-control">
+              <option value="fisica">Física</option>
+              <option value="moral">Moral</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>RFC</label>
+            <input type="text" id="c-rfc" class="form-control" maxlength="13">
+          </div>
+          <div class="form-group">
+            <label>Teléfono</label>
+            <input type="text" id="c-telefono" class="form-control" maxlength="20">
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="c-email" class="form-control" maxlength="150">
+          </div>
+          <div class="form-group">
+            <label>Origen de contacto</label>
+            <input type="text" id="c-origen" class="form-control" maxlength="50" placeholder="referido, web, whatsapp…">
+          </div>
+          <div class="form-group" id="grupo-agente">
+            <label>Agente de cartera</label>
+            <select id="c-agente" class="form-control"><option value="">— Sin asignar —</option></select>
+          </div>
+          <div class="form-group" id="grupo-promotoria" style="display:none">
+            <label>Promotoría</label>
+            <select id="c-promotoria" class="form-control"></select>
+          </div>
+
+          <div class="form-group form-group--full" id="grupo-consentimiento">
+            <label style="font-weight:700;color:#0f172a">Consentimiento de datos (DP-07) <span style="color:#dc2626">*</span></label>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">
+              <input type="text" id="c-aviso-version" class="form-control" style="flex:1;min-width:160px" placeholder="Versión del aviso (p. ej. v1.0)">
+              <select id="c-consent-canal" class="form-control" style="flex:1;min-width:160px">
+                <option value="">Canal del consentimiento…</option>
+                <option value="web">Web</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="telefono">Teléfono</option>
+                <option value="presencial">Presencial</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group form-group--full">
+            <label>Notas</label>
+            <textarea id="c-notas" class="form-control" rows="2" maxlength="4000"></textarea>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-cliente')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-cliente">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/services/api.js"></script>
+<script src="/js/services/auth.service.js"></script>
+<script src="/js/services/catalogos.service.js"></script>
+<script src="/js/services/clientes.service.js"></script>
+<script src="/js/services/agentes.service.js"></script>
+<script src="/js/utils/format.js"></script>
+<script src="/js/utils/toast.js"></script>
+<script src="/js/utils/modal.js"></script>
+<script src="/js/utils/table.js"></script>
+<script src="/js/utils/formErrors.js"></script>
+<script src="/js/components/sidebar.js"></script>
+<script src="/js/utils/auth.guard.js"></script>
+<script src="/js/pages/clientes.js"></script>
+</body>
+</html>

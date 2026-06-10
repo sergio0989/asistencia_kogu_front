@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Pólizas — Kogu Asistencias</title>
+  <link rel="stylesheet" href="/styles/styles.css">
+  <style>
+    .filters-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+    .filters-bar input,.filters-bar select{height:36px;padding:0 12px;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;background:#fff}
+    .filters-bar input{min-width:180px}
+    .badge-info{background:#dbeafe;color:#1e40af}
+    .badge-success{background:#dcfce7;color:#166534}
+    .badge-secondary{background:#f1f5f9;color:#64748b}
+    .badge-warning{background:#fef9c3;color:#92400e}
+    .badge-danger{background:#fee2e2;color:#991b1b}
+    .asist-row{display:flex;gap:8px;margin-bottom:6px}
+    .asist-row input{flex:1}
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar" id="sidebar-placeholder"></aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="eyebrow">Promotoría</div>
+        <h1>Pólizas</h1>
+        <p>Cartera de pólizas y plan de recibos</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button class="btn btn-primary" id="btn-nueva-poliza">➕ Nueva póliza</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <div class="filters-bar">
+        <input type="text" id="filtro-buscar" placeholder="🔍  Número de póliza…">
+        <select id="filtro-estatus">
+          <option value="">Todos los estatus</option>
+          <option value="vigente">Vigente</option>
+          <option value="por_renovar">Por renovar</option>
+          <option value="vencida">Vencida</option>
+          <option value="renovada">Renovada</option>
+          <option value="cancelada">Cancelada</option>
+        </select>
+        <select id="filtro-ramo"><option value="">Todos los ramos</option></select>
+        <select id="filtro-aseguradora"><option value="">Todas las aseguradoras</option></select>
+        <label style="font-size:12px;color:#64748b">Vence desde <input type="date" id="filtro-venc-desde"></label>
+        <label style="font-size:12px;color:#64748b">hasta <input type="date" id="filtro-venc-hasta"></label>
+        <button class="btn btn-ghost btn-sm" id="btn-limpiar">Limpiar</button>
+        <span id="contador-polizas" style="margin-left:auto;font-size:13px;color:#64748b"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table style="width:100%">
+          <thead>
+            <tr>
+              <th>Número</th><th>Cliente</th><th>Ramo</th><th>Aseguradora</th>
+              <th>Vigencia fin</th><th>Prima</th><th>Forma pago</th><th>Estatus</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-polizas-body"></tbody>
+        </table>
+      </div>
+
+      <div id="paginacion" style="display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:14px;font-size:13px"></div>
+
+    </div><!-- /content -->
+  </main>
+</div>
+
+<!-- MODAL: Nueva póliza -->
+<div class="modal-backdrop" id="modal-poliza" style="display:none">
+  <div class="modal-box" style="max-width:640px">
+    <div class="modal-header">
+      <h3 class="modal-title">Nueva póliza</h3>
+      <button class="modal-close" onclick="modal.close('modal-poliza')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="form-poliza" autocomplete="off">
+        <div class="form-grid">
+          <div class="form-group form-group--full">
+            <label>Cliente <span style="color:#dc2626">*</span></label>
+            <select id="p-cliente" class="form-control"><option value="">— Seleccionar cliente —</option></select>
+          </div>
+          <div class="form-group"><label>Aseguradora <span style="color:#dc2626">*</span></label>
+            <select id="p-aseguradora" class="form-control"><option value="">—</option></select></div>
+          <div class="form-group"><label>Ramo <span style="color:#dc2626">*</span></label>
+            <select id="p-ramo" class="form-control"><option value="">—</option></select></div>
+          <div class="form-group"><label>Número de póliza <span style="color:#dc2626">*</span></label>
+            <input type="text" id="p-numero" class="form-control" maxlength="50"></div>
+          <div class="form-group"><label>Producto</label>
+            <input type="text" id="p-producto" class="form-control" maxlength="150"></div>
+          <div class="form-group"><label>Vigencia inicio <span style="color:#dc2626">*</span></label>
+            <input type="date" id="p-vig-inicio" class="form-control"></div>
+          <div class="form-group"><label>Vigencia fin <span style="color:#dc2626">*</span></label>
+            <input type="date" id="p-vig-fin" class="form-control"></div>
+          <div class="form-group"><label>Prima total <span style="color:#dc2626">*</span></label>
+            <input type="number" id="p-prima" class="form-control" step="0.01" min="0"></div>
+          <div class="form-group"><label>Forma de pago <span style="color:#dc2626">*</span></label>
+            <select id="p-forma-pago" class="form-control">
+              <option value="anual">Anual</option><option value="semestral">Semestral</option>
+              <option value="trimestral">Trimestral</option><option value="mensual">Mensual</option>
+            </select></div>
+          <div class="form-group"><label>% Comisión</label>
+            <input type="number" id="p-comision" class="form-control" step="0.01" min="0" max="100"></div>
+          <div class="form-group form-group--full">
+            <label>Asistencias incluidas</label>
+            <div id="asist-list"></div>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-add-asist">＋ Agregar asistencia</button>
+          </div>
+          <div class="form-group form-group--full"><label>Notas</label>
+            <textarea id="p-notas" class="form-control" rows="2" maxlength="4000"></textarea></div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-poliza')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-poliza">Crear póliza</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Recibos generados (confirmación) -->
+<div class="modal-backdrop" id="modal-recibos" style="display:none">
+  <div class="modal-box" style="max-width:480px">
+    <div class="modal-header">
+      <h3 class="modal-title">✅ Póliza creada</h3>
+      <button class="modal-close" onclick="modal.close('modal-recibos')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:#64748b;font-size:13px;margin-bottom:12px">Plan de recibos generado:</p>
+      <div id="recibos-generados"></div>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-recibos')">Cerrar</button>
+      <button class="btn btn-primary" id="btn-ir-poliza">Ver póliza</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/services/api.js"></script>
+<script src="/js/services/auth.service.js"></script>
+<script src="/js/services/catalogos.service.js"></script>
+<script src="/js/services/clientes.service.js"></script>
+<script src="/js/services/polizas.service.js"></script>
+<script src="/js/utils/format.js"></script>
+<script src="/js/utils/toast.js"></script>
+<script src="/js/utils/modal.js"></script>
+<script src="/js/utils/table.js"></script>
+<script src="/js/utils/formErrors.js"></script>
+<script src="/js/components/sidebar.js"></script>
+<script src="/js/utils/auth.guard.js"></script>
+<script src="/js/pages/polizas.js"></script>
+</body>
+</html>
