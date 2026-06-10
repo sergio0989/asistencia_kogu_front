@@ -31,6 +31,8 @@
         operador:   'Operador',
         cabina:     'Cabina',
         abogado:    'Abogado',
+        promotor:   'Promotor',
+        agente:     'Agente',
       };
       roleEl.textContent = roleLabels[user.roles[0]] || user.roles[0];
     }
