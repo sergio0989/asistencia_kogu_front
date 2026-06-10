@@ -45,17 +45,19 @@ function renderTipos(tipos) {
   const container = document.getElementById('tipos-container');
   if (!container) return;
 
+  // t.id / t.clave son del catálogo (controlados) → tal cual en onclick;
+  // en atributos y texto se escapan junto al resto de datos.
   container.innerHTML = tipos.map(t => {
     const activo  = t.activo;
     const icono   = t.icono || 'file';
     return `
       <div class="tipo-card ${!activo ? 'tipo-card--disabled' : ''}"
-           data-tipo-id="${t.id}" data-tipo-clave="${t.clave}"
+           data-tipo-id="${fmt.esc(t.id)}" data-tipo-clave="${fmt.esc(t.clave)}"
            onclick="${activo ? `seleccionarTipo('${t.id}','${t.clave}')` : ''}">
-        <div class="tipo-card__icon" style="color:${t.color || 'var(--primary)'}">
-          <i data-lucide="${icono}"></i>
+        <div class="tipo-card__icon" style="color:${fmt.esc(t.color || 'var(--primary)')}">
+          <i data-lucide="${fmt.esc(icono)}"></i>
         </div>
-        <div class="tipo-card__nombre">${t.nombre}</div>
+        <div class="tipo-card__nombre">${fmt.esc(t.nombre)}</div>
         ${!activo ? '<div class="tipo-card__badge">Fase 2</div>' : ''}
       </div>`;
   }).join('');
@@ -67,8 +69,9 @@ function renderTipos(tipos) {
 function renderSelect(id, items, valueKey, labelKey, placeholder = '— Seleccionar —') {
   const el = document.getElementById(id);
   if (!el) return;
-  el.innerHTML = `<option value="">${placeholder}</option>` +
-    items.map(i => `<option value="${i[valueKey]}">${i[labelKey]}</option>`).join('');
+  // Caso especial: se escapan tanto los values como los labels de las options.
+  el.innerHTML = `<option value="">${fmt.esc(placeholder)}</option>` +
+    items.map(i => `<option value="${fmt.esc(i[valueKey])}">${fmt.esc(i[labelKey])}</option>`).join('');
 }
 
 // ─── Eventos ──────────────────────────────────────────────────────────────────
@@ -238,6 +241,7 @@ async function crearExpediente() {
 // ─── Paso 2: Formulario dinámico ─────────────────────────────────────────────
 async function cargarFormularioDinamico() {
   const container = document.getElementById('formulario-dinamico');
+  // estático: estado de carga
   if (container) container.innerHTML = '<div style="text-align:center;padding:32px;color:#94a3b8">Cargando formulario…</div>';
 
   try {
@@ -245,6 +249,7 @@ async function cargarFormularioDinamico() {
     const formularios = await catalogosService.getFormularios(nc.tipoId, nc.subtipoId || '');
 
     if (!formularios?.length) {
+      // estático: sin cuestionario
       if (container) container.innerHTML = `
         <div style="text-align:center;padding:40px;color:#94a3b8">
           <div style="font-size:32px;margin-bottom:8px">📋</div>
@@ -260,6 +265,7 @@ async function cargarFormularioDinamico() {
 
   } catch (err) {
     console.error('Error cargando formulario:', err);
+    // estático: mensaje de error fijo
     if (container) container.innerHTML = '<div style="text-align:center;padding:32px;color:#dc2626;font-size:13px">Error al cargar el formulario</div>';
   }
 }
@@ -268,9 +274,10 @@ function renderFormularioDinamico(esquema) {
   const container = document.getElementById('formulario-dinamico');
   if (!container || !esquema?.secciones) return;
 
+  // Esquema JSON configurable (API): se escapan títulos, labels y opciones.
   container.innerHTML = esquema.secciones.map(sec => `
     <div class="form-section">
-      <h4 class="form-section__title">${sec.titulo}</h4>
+      <h4 class="form-section__title">${fmt.esc(sec.titulo)}</h4>
       <div class="form-grid">
         ${sec.campos.map(campo => renderCampo(campo)).join('')}
       </div>
@@ -279,68 +286,73 @@ function renderFormularioDinamico(esquema) {
 }
 
 function renderCampo(campo) {
-  const req  = campo.requerido ? '<span style="color:var(--danger)">*</span>' : '';
-  const id   = `campo_${campo.id}`;
+  // Datos del esquema JSON (configurable vía API) → todo escapado: labels,
+  // opciones y los valores que van dentro de atributos (id/name/data-*/maxlength).
+  const req   = campo.requerido ? '<span style="color:var(--danger)">*</span>' : '';
+  const id    = `campo_${campo.id}`;
+  const idA   = fmt.esc(id);
+  const nameA = fmt.esc(campo.id);
+  const label = fmt.esc(campo.label);
 
   // Atributo condicional: el campo se oculta por defecto si depende de otro
   const condicional = campo.condicional;
   const esCondicional = !!condicional;
   const wrapStyle   = esCondicional ? 'display:none' : '';
   const wrapData    = esCondicional
-    ? `data-cond-campo="${condicional.campo}" data-cond-valor="${condicional.valor}"`
+    ? `data-cond-campo="${fmt.esc(condicional.campo)}" data-cond-valor="${fmt.esc(condicional.valor)}"`
     : '';
 
   let inner = '';
 
   if (campo.tipo === 'texto' || campo.tipo === 'hora') {
-    inner = `<label for="${id}">${campo.label} ${req}</label>
-      <input type="text" id="${id}" name="${campo.id}" maxlength="${campo.maxLength || 255}"
+    inner = `<label for="${idA}">${label} ${req}</label>
+      <input type="text" id="${idA}" name="${nameA}" maxlength="${fmt.esc(campo.maxLength || 255)}"
         ${campo.requerido && !esCondicional ? 'required' : ''} class="form-control">`;
   }
   else if (campo.tipo === 'fecha') {
     // Si el label menciona "hora" usamos datetime-local; si no, solo date
     const inputType = /hora/i.test(campo.label) ? 'datetime-local' : 'date';
-    inner = `<label for="${id}">${campo.label} ${req}</label>
-      <input type="${inputType}" id="${id}" name="${campo.id}" class="form-control">`;
+    inner = `<label for="${idA}">${label} ${req}</label>
+      <input type="${inputType}" id="${idA}" name="${nameA}" class="form-control">`;
   }
   else if (campo.tipo === 'numero') {
-    inner = `<label for="${id}">${campo.label} ${req}</label>
-      <input type="number" id="${id}" name="${campo.id}"
-        min="${campo.min || ''}" max="${campo.max || ''}" class="form-control">`;
+    inner = `<label for="${idA}">${label} ${req}</label>
+      <input type="number" id="${idA}" name="${nameA}"
+        min="${fmt.esc(campo.min || '')}" max="${fmt.esc(campo.max || '')}" class="form-control">`;
   }
   else if (campo.tipo === 'boolean') {
     inner = `<label style="flex-direction:row;align-items:center;gap:8px;cursor:pointer">
-      <input type="checkbox" id="${id}" name="${campo.id}"> ${campo.label}</label>`;
+      <input type="checkbox" id="${idA}" name="${nameA}"> ${label}</label>`;
   }
   else if (campo.tipo === 'select') {
-    inner = `<label for="${id}">${campo.label} ${req}</label>
-      <select id="${id}" name="${campo.id}" class="form-control"
+    inner = `<label for="${idA}">${label} ${req}</label>
+      <select id="${idA}" name="${nameA}" class="form-control"
               onchange="evaluarCondicionales(this)">
         <option value="">— Seleccionar —</option>
-        ${campo.opciones.map(o => `<option value="${o}">${o}</option>`).join('')}
+        ${campo.opciones.map(o => `<option value="${fmt.esc(o)}">${fmt.esc(o)}</option>`).join('')}
       </select>`;
   }
   else if (campo.tipo === 'checkboxes') {
-    return `<div class="form-group form-group--full" style="${wrapStyle}" ${wrapData} data-campo-wrap="${campo.id}">
-      <label>${campo.label} ${req}</label>
+    return `<div class="form-group form-group--full" style="${wrapStyle}" ${wrapData} data-campo-wrap="${nameA}">
+      <label>${label} ${req}</label>
       <div class="checkbox-group">
         ${campo.opciones.map(o => `
           <label class="checkbox-item">
-            <input type="checkbox" name="${campo.id}" value="${o}"> ${o}
+            <input type="checkbox" name="${nameA}" value="${fmt.esc(o)}"> ${fmt.esc(o)}
           </label>`).join('')}
       </div>
     </div>`;
   }
   else if (campo.tipo === 'textarea') {
-    return `<div class="form-group form-group--full" style="${wrapStyle}" ${wrapData} data-campo-wrap="${campo.id}">
-      <label for="${id}">${campo.label} ${req}</label>
-      <textarea id="${id}" name="${campo.id}" rows="3" maxlength="${campo.maxLength || 2000}"
+    return `<div class="form-group form-group--full" style="${wrapStyle}" ${wrapData} data-campo-wrap="${nameA}">
+      <label for="${idA}">${label} ${req}</label>
+      <textarea id="${idA}" name="${nameA}" rows="3" maxlength="${fmt.esc(campo.maxLength || 2000)}"
         class="form-control"></textarea>
     </div>`;
   }
 
   if (!inner) return '';
-  return `<div class="form-group" style="${wrapStyle}" ${wrapData} data-campo-wrap="${campo.id}">
+  return `<div class="form-group" style="${wrapStyle}" ${wrapData} data-campo-wrap="${nameA}">
     ${inner}
   </div>`;
 }
@@ -432,18 +444,19 @@ async function cargarSubtipos(tipo_id) {
   if (!section || !container) return;
 
   section.style.display = 'none';
-  container.innerHTML   = '';
+  container.innerHTML   = ''; // reset (cadena vacía, sin datos)
 
   try {
     const subtipos = await catalogosService.getSubtipos(tipo_id);
     if (!subtipos?.length) return;  // sin subtipos → no se muestra la sección
 
     section.style.display = 'block';
+    // s.id: UUID propio → tal cual en onclick; nombre/descripción escapados.
     container.innerHTML = subtipos.map(s => `
-      <div class="tipo-card" data-subtipo-id="${s.id}"
+      <div class="tipo-card" data-subtipo-id="${fmt.esc(s.id)}"
            onclick="seleccionarSubtipo('${s.id}')">
-        <div class="tipo-card__nombre" style="font-size:13px">${s.nombre}</div>
-        ${s.descripcion ? `<div style="font-size:11px;color:#64748b;margin-top:4px">${s.descripcion}</div>` : ''}
+        <div class="tipo-card__nombre" style="font-size:13px">${fmt.esc(s.nombre)}</div>
+        ${s.descripcion ? `<div style="font-size:11px;color:#64748b;margin-top:4px">${fmt.esc(s.descripcion)}</div>` : ''}
       </div>`
     ).join('');
 

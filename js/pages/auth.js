@@ -17,10 +17,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const ambienteUrlEl  = document.getElementById('ambiente-url');
 
   if (selectAmbiente && window.AMBIENTES) {
-    // Poblar opciones
+    // estático: window.AMBIENTES es config local (config.js), no dato de API.
+    // Aun así se escapan clave/label por robustez ante cambios de config.
     selectAmbiente.innerHTML = Object.entries(window.AMBIENTES)
       .map(([clave, cfg]) =>
-        `<option value="${clave}" ${clave === window.AMBIENTE_ACTIVO ? 'selected' : ''}>${cfg.label}</option>`
+        `<option value="${fmt.esc(clave)}" ${clave === window.AMBIENTE_ACTIVO ? 'selected' : ''}>${fmt.esc(cfg.label)}</option>`
       ).join('');
 
     // Mostrar URL actual
@@ -76,6 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function setLoading(loading) {
     if (!btnEl) return;
     btnEl.disabled = loading;
+    // estático: dos textos fijos del botón
     btnEl.innerHTML = loading
       ? '<span style="opacity:.7">Ingresando…</span>'
       : 'Ingresar al sistema';
