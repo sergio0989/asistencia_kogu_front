@@ -5,7 +5,7 @@
 
 // ── Ambientes disponibles ──────────────────────────────────────────────────────
 window.AMBIENTES = {
-  qa:          { label: 'QA',          url: 'https://asistencia-kogu.onrender.com/api/v1' },
+  qa:          { label: 'QA',          url: 'https://dev-asistencia.onrender.com/api/v1' },
   produccion:  { label: 'Producción',  url: 'https://api.kogu.mx/api/v1' },
   local:       { label: 'Local (dev)', url: 'http://localhost:3000/api/v1' },
 };
