@@ -116,6 +116,13 @@ const catalogosService = {
   async getPromotorias() {
     return api.get('/catalogos/promotorias');
   },
+
+  // ── PROMOTORÍA P2 (Bf-05) ────────────────────────────────────────────────
+
+  /** Cuestionario de primer contacto del ramo (contexto 'promotoria'). */
+  async getFormulariosPromotoria(ramo_id) {
+    return api.get(`/catalogos/formularios-promotoria?ramo_id=${encodeURIComponent(ramo_id)}`);
+  },
 };
 
 window.catalogosService = catalogosService;
