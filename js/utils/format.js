@@ -73,6 +73,7 @@ const fmt = {
 
   canal(canal_origen) {
     const map = {
+      agente:   { label: 'Agente',   icon: '🎫' },
       llamada:  { label: 'Llamada',  icon: '📞' },
       web:      { label: 'Web',      icon: '🌐' },
       whatsapp: { label: 'WhatsApp', icon: '💬' },
