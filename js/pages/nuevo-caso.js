@@ -6,7 +6,7 @@
  * Paso 3: Confirmación y folio generado
  *
  * Depende de: api.js, asistencias.service.js, catalogos.service.js,
- *             fmt, toast, modal
+ *             fmt, toast, modal, formRenderer
  */
 
 const nc = {
@@ -261,7 +261,8 @@ async function cargarFormularioDinamico() {
 
     nc.formularioId = formularios[0].id;
     const esquema   = formularios[0].esquema;
-    renderFormularioDinamico(esquema);
+    // Renderer compartido (Bf-05): mismo formato de secciones/campos.
+    formRenderer.render(container, esquema);
 
   } catch (err) {
     console.error('Error cargando formulario:', err);
@@ -270,138 +271,12 @@ async function cargarFormularioDinamico() {
   }
 }
 
-function renderFormularioDinamico(esquema) {
-  const container = document.getElementById('formulario-dinamico');
-  if (!container || !esquema?.secciones) return;
-
-  // Esquema JSON configurable (API): se escapan títulos, labels y opciones.
-  container.innerHTML = esquema.secciones.map(sec => `
-    <div class="form-section">
-      <h4 class="form-section__title">${fmt.esc(sec.titulo)}</h4>
-      <div class="form-grid">
-        ${sec.campos.map(campo => renderCampo(campo)).join('')}
-      </div>
-    </div>`
-  ).join('');
-}
-
-function renderCampo(campo) {
-  // Datos del esquema JSON (configurable vía API) → todo escapado: labels,
-  // opciones y los valores que van dentro de atributos (id/name/data-*/maxlength).
-  const req   = campo.requerido ? '<span style="color:var(--danger)">*</span>' : '';
-  const id    = `campo_${campo.id}`;
-  const idA   = fmt.esc(id);
-  const nameA = fmt.esc(campo.id);
-  const label = fmt.esc(campo.label);
-
-  // Atributo condicional: el campo se oculta por defecto si depende de otro
-  const condicional = campo.condicional;
-  const esCondicional = !!condicional;
-  const wrapStyle   = esCondicional ? 'display:none' : '';
-  const wrapData    = esCondicional
-    ? `data-cond-campo="${fmt.esc(condicional.campo)}" data-cond-valor="${fmt.esc(condicional.valor)}"`
-    : '';
-
-  let inner = '';
-
-  if (campo.tipo === 'texto' || campo.tipo === 'hora') {
-    inner = `<label for="${idA}">${label} ${req}</label>
-      <input type="text" id="${idA}" name="${nameA}" maxlength="${fmt.esc(campo.maxLength || 255)}"
-        ${campo.requerido && !esCondicional ? 'required' : ''} class="form-control">`;
-  }
-  else if (campo.tipo === 'fecha') {
-    // Si el label menciona "hora" usamos datetime-local; si no, solo date
-    const inputType = /hora/i.test(campo.label) ? 'datetime-local' : 'date';
-    inner = `<label for="${idA}">${label} ${req}</label>
-      <input type="${inputType}" id="${idA}" name="${nameA}" class="form-control">`;
-  }
-  else if (campo.tipo === 'numero') {
-    inner = `<label for="${idA}">${label} ${req}</label>
-      <input type="number" id="${idA}" name="${nameA}"
-        min="${fmt.esc(campo.min || '')}" max="${fmt.esc(campo.max || '')}" class="form-control">`;
-  }
-  else if (campo.tipo === 'boolean') {
-    inner = `<label style="flex-direction:row;align-items:center;gap:8px;cursor:pointer">
-      <input type="checkbox" id="${idA}" name="${nameA}"> ${label}</label>`;
-  }
-  else if (campo.tipo === 'select') {
-    inner = `<label for="${idA}">${label} ${req}</label>
-      <select id="${idA}" name="${nameA}" class="form-control"
-              onchange="evaluarCondicionales(this)">
-        <option value="">— Seleccionar —</option>
-        ${campo.opciones.map(o => `<option value="${fmt.esc(o)}">${fmt.esc(o)}</option>`).join('')}
-      </select>`;
-  }
-  else if (campo.tipo === 'checkboxes') {
-    return `<div class="form-group form-group--full" style="${wrapStyle}" ${wrapData} data-campo-wrap="${nameA}">
-      <label>${label} ${req}</label>
-      <div class="checkbox-group">
-        ${campo.opciones.map(o => `
-          <label class="checkbox-item">
-            <input type="checkbox" name="${nameA}" value="${fmt.esc(o)}"> ${fmt.esc(o)}
-          </label>`).join('')}
-      </div>
-    </div>`;
-  }
-  else if (campo.tipo === 'textarea') {
-    return `<div class="form-group form-group--full" style="${wrapStyle}" ${wrapData} data-campo-wrap="${nameA}">
-      <label for="${idA}">${label} ${req}</label>
-      <textarea id="${idA}" name="${nameA}" rows="3" maxlength="${fmt.esc(campo.maxLength || 2000)}"
-        class="form-control"></textarea>
-    </div>`;
-  }
-
-  if (!inner) return '';
-  return `<div class="form-group" style="${wrapStyle}" ${wrapData} data-campo-wrap="${nameA}">
-    ${inner}
-  </div>`;
-}
-
-/**
- * Evalúa los campos condicionales después de que un select cambia su valor.
- * Busca todos los wrappers con data-cond-campo=<name> y los muestra/oculta.
- */
-function evaluarCondicionales(selectEl) {
-  const nombreCampo = selectEl.name;
-  const valorActual = selectEl.value;
-  const container   = document.getElementById('formulario-dinamico');
-  if (!container) return;
-
-  container.querySelectorAll(`[data-cond-campo="${nombreCampo}"]`).forEach(wrap => {
-    const valorEsperado = wrap.dataset.condValor;
-    const visible = valorActual === valorEsperado;
-    wrap.style.display = visible ? '' : 'none';
-    // Limpiar valor cuando se oculta para no enviar datos fantasma
-    if (!visible) {
-      wrap.querySelectorAll('input, select, textarea').forEach(el => {
-        if (el.type === 'checkbox') el.checked = false;
-        else el.value = '';
-      });
-    }
-  });
-}
-
-window.evaluarCondicionales = evaluarCondicionales;
-
 async function guardarFormulario() {
   if (!nc.formularioId || !nc.expedienteId) return;
 
-  const respuestas = {};
   const container  = document.getElementById('formulario-dinamico');
   if (!container) return;
-
-  container.querySelectorAll('[name]').forEach(el => {
-    // Ignorar campos dentro de un wrapper condicional que está oculto
-    const wrap = el.closest('[data-campo-wrap]');
-    if (wrap && wrap.style.display === 'none') return;
-
-    if (el.type === 'checkbox') {
-      if (!respuestas[el.name]) respuestas[el.name] = [];
-      if (el.checked) respuestas[el.name].push(el.value || true);
-    } else if (el.value) {
-      respuestas[el.name] = el.value;
-    }
-  });
+  const respuestas = formRenderer.recolectar(container);
 
   try {
     await asistenciasService.guardarRespuestas(nc.expedienteId, nc.formularioId, respuestas);
