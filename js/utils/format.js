@@ -150,6 +150,29 @@ const fmt = {
     const e = fmt.estatusPoliza(estatus);
     return fmt.badgeHtml(e.label, e.class);
   },
+
+  // ── Promotoría P2 (Bf-05) ─────────────────────────────────────────────────
+  // Máquina de estatus del pipeline (contexto 'oportunidad'). El label real lo
+  // trae el API en estatus_nombre; el mapa es fallback + clase de color.
+  estatusOportunidad(estatus) {
+    const map = {
+      primer_contacto:       { label: 'Primer contacto', class: 'badge-info'      },
+      calificado:            { label: 'Calificado',      class: 'badge-primary'   },
+      en_cotizacion:         { label: 'En cotización',   class: 'badge-warning'   },
+      cotizado:              { label: 'Cotizado',        class: 'badge-warning'   },
+      en_emision:            { label: 'En emisión',      class: 'badge-primary'   },
+      ganada:                { label: 'Ganada',          class: 'badge-success'   },
+      perdida:               { label: 'Perdida',         class: 'badge-danger'    },
+      no_califica:           { label: 'No califica',     class: 'badge-secondary' },
+      recontacto_programado: { label: 'Recontacto',      class: 'badge-warning'   },
+    };
+    return map[estatus] || { label: estatus || '—', class: 'badge-secondary' };
+  },
+
+  estatusOportunidadBadge(estatus, labelOverride) {
+    const e = fmt.estatusOportunidad(estatus);
+    return fmt.badgeHtml(labelOverride || e.label, e.class);
+  },
 };
 
 window.fmt = fmt;

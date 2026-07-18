@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Nueva oportunidad — Kogu Asistencias</title>
+  <link rel="stylesheet" href="/styles/styles.css">
+  <style>
+    .steps{display:flex;gap:0;margin-bottom:28px;position:relative}
+    .step-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative}
+    .step-item::before{content:'';position:absolute;top:18px;left:calc(50% + 18px);right:calc(-50% + 18px);height:2px;background:#e2e8f0;z-index:0}
+    .step-item:last-child::before{display:none}
+    .step-circle{width:36px;height:36px;border-radius:50%;border:2px solid #e2e8f0;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;position:relative;z-index:1;transition:all .2s}
+    .step--completed .step-circle{background:#0891b2;color:#fff;border-color:#0891b2}
+    .step--active .step-circle{background:#0f172a;color:#fff;border-color:#0f172a}
+    .step-label{font-size:11px;color:#94a3b8;text-align:center;font-weight:600}
+    .step--active .step-label{color:#0f172a}
+    .canal-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:8px}
+    .canal-card{padding:14px 8px;border-radius:14px;border:2px solid #e2e8f0;background:#fff;cursor:pointer;text-align:center;transition:all .15s;font-size:12px;font-weight:600}
+    .canal-card:hover{border-color:#0891b2;background:#ecfeff}
+    .canal-card.active{border-color:#0891b2;background:#ecfeff;color:#0891b2}
+    .canal-card__icon{font-size:22px;margin-bottom:4px}
+    .mode-tabs{display:flex;gap:8px;margin-bottom:14px}
+    .mode-tab{flex:1;padding:10px;border-radius:10px;border:2px solid #e2e8f0;background:#fff;cursor:pointer;text-align:center;font-size:13px;font-weight:700;color:#475569}
+    .mode-tab.active{border-color:#0891b2;background:#ecfeff;color:#0891b2}
+    .form-section__title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#475569;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #f1f5f9}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .form-group{display:flex;flex-direction:column;gap:5px}
+    .form-group label{font-size:12px;font-weight:600;color:#475569}
+    .form-group--full{grid-column:1/-1}
+    .form-control{height:38px;padding:0 12px;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;width:100%;box-sizing:border-box}
+    .form-control:focus{outline:none;border-color:#0891b2;box-shadow:0 0 0 3px rgba(8,145,178,.1)}
+    textarea.form-control{height:80px;padding:10px 12px;resize:vertical}
+    select.form-control{background:#fff}
+    .checkbox-group{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+    .checkbox-item{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:6px 12px;border-radius:8px;border:1px solid #e2e8f0;background:#fff}
+    .nav-buttons{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid #f1f5f9}
+    .confirm-box{background:#f0fdf4;border:2px solid #86efac;border-radius:16px;padding:32px;text-align:center}
+    .confirm-folio{font-size:30px;font-weight:900;color:#166534;letter-spacing:.05em;margin:12px 0}
+    .cliente-hit{padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;margin-top:6px;cursor:pointer;font-size:13px;background:#fff}
+    .cliente-hit:hover{border-color:#0891b2;background:#ecfeff}
+    .cliente-hit.sel{border-color:#0891b2;background:#ecfeff}
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar" id="sidebar-placeholder"></aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="eyebrow"><a href="/comercial/pipeline.html" style="color:#0891b2;text-decoration:none">← Pipeline</a> · Promotoría</div>
+        <h1>Nueva oportunidad</h1>
+        <p>Alta de prospección. El folio PR- se genera automáticamente.</p>
+      </div>
+      <div class="topbar-cards">
+        <div class="top-mini">
+          <div class="k">Folio generado</div>
+          <div class="v" id="folio-preview" style="color:#0891b2;font-size:13px">pendiente</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="content" style="max-width:840px;margin-left:auto;margin-right:auto">
+
+      <!-- STEPPER -->
+      <div class="steps">
+        <div class="step-item step step--active"><div class="step-circle">1</div><div class="step-label">Canal, ramo y cliente</div></div>
+        <div class="step-item step"><div class="step-circle">2</div><div class="step-label">Cuestionario del ramo</div></div>
+        <div class="step-item step"><div class="step-circle">3</div><div class="step-label">Confirmación</div></div>
+      </div>
+
+      <!-- ── PASO 1 ── -->
+      <div data-paso="1">
+        <div class="card" style="margin-bottom:16px">
+          <div class="form-section__title">Canal de contacto</div>
+          <div class="canal-grid">
+            <div class="canal-card" data-canal="agente"><div class="canal-card__icon">🎫</div>Agente</div>
+            <div class="canal-card" data-canal="llamada"><div class="canal-card__icon">📞</div>Llamada</div>
+            <div class="canal-card" data-canal="web"><div class="canal-card__icon">🌐</div>Web</div>
+            <div class="canal-card" data-canal="whatsapp"><div class="canal-card__icon">💬</div>WhatsApp</div>
+            <div class="canal-card" data-canal="interno"><div class="canal-card__icon">🏢</div>Interno</div>
+          </div>
+
+          <div class="form-grid" style="margin-top:16px">
+            <div class="form-group">
+              <label>Ramo <span style="color:#dc2626">*</span></label>
+              <select id="o-ramo" class="form-control"><option value="">— Seleccionar ramo —</option></select>
+            </div>
+            <div class="form-group" id="grupo-agente" style="display:none">
+              <label>Agente de cartera</label>
+              <select id="o-agente" class="form-control"><option value="">— Sin asignar —</option></select>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px">
+          <div class="form-section__title">Cliente</div>
+          <div class="mode-tabs">
+            <div class="mode-tab active" data-mode="existente">🧑‍💼 Cliente existente</div>
+            <div class="mode-tab" data-mode="prospecto">✨ Prospecto nuevo</div>
+          </div>
+
+          <!-- Modo existente -->
+          <div id="mode-existente">
+            <div class="form-group form-group--full">
+              <label>Buscar cliente</label>
+              <input type="text" id="o-cliente-buscar" class="form-control" placeholder="Nombre, teléfono o RFC…" autocomplete="off">
+              <div id="o-cliente-resultados"></div>
+              <input type="hidden" id="o-cliente-id">
+            </div>
+          </div>
+
+          <!-- Modo prospecto -->
+          <div id="mode-prospecto" style="display:none">
+            <div class="form-grid">
+              <div class="form-group form-group--full">
+                <label>Nombre / Razón social <span style="color:#dc2626">*</span></label>
+                <input type="text" id="o-nombre" class="form-control" maxlength="200">
+              </div>
+              <div class="form-group">
+                <label>Tipo de persona</label>
+                <select id="o-tipo-persona" class="form-control">
+                  <option value="fisica">Física</option>
+                  <option value="moral">Moral</option>
+                </select>
+              </div>
+              <div class="form-group"><label>RFC</label><input type="text" id="o-rfc" class="form-control" maxlength="13"></div>
+              <div class="form-group"><label>Teléfono</label><input type="text" id="o-telefono" class="form-control" maxlength="20"></div>
+              <div class="form-group"><label>Email</label><input type="email" id="o-email" class="form-control" maxlength="150"></div>
+              <div class="form-group"><label>Origen de contacto</label><input type="text" id="o-origen" class="form-control" maxlength="50" placeholder="referido, web, whatsapp…"></div>
+              <div class="form-group" id="grupo-promotoria" style="display:none">
+                <label>Promotoría</label>
+                <select id="o-promotoria" class="form-control"></select>
+              </div>
+
+              <div class="form-group form-group--full">
+                <label style="font-weight:700;color:#0f172a">Consentimiento de datos (DP-07) <span style="color:#dc2626">*</span></label>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">
+                  <input type="text" id="o-aviso-version" class="form-control" style="flex:1;min-width:160px" placeholder="Versión del aviso (p. ej. v1.0)">
+                  <select id="o-consent-canal" class="form-control" style="flex:1;min-width:160px">
+                    <option value="">Canal del consentimiento…</option>
+                    <option value="web">Web</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="telefono">Teléfono</option>
+                    <option value="presencial">Presencial</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="form-section__title">Datos de primer contacto</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Vencimiento de la póliza actual</label>
+              <input type="date" id="o-vencimiento" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>Aseguradora actual</label>
+              <input type="text" id="o-aseguradora-actual" class="form-control" maxlength="100" placeholder="Nombre de la aseguradora">
+            </div>
+            <div class="form-group form-group--full">
+              <label>Notas</label>
+              <textarea id="o-notas" class="form-control" rows="2" maxlength="4000"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="nav-buttons">
+          <a href="/comercial/pipeline.html" class="btn btn-ghost">Cancelar</a>
+          <button class="btn btn-primary" id="btn-siguiente">Continuar →</button>
+        </div>
+      </div>
+
+      <!-- ── PASO 2 ── -->
+      <div data-paso="2" style="display:none">
+        <div class="card">
+          <div class="form-section__title">Cuestionario de primer contacto</div>
+          <p style="color:#64748b;font-size:13px;margin-bottom:20px">
+            Cuestionario del ramo seleccionado. Puedes completarlo ahora o dejarlo para después desde el detalle.
+          </p>
+          <div id="formulario-dinamico">
+            <div style="text-align:center;padding:32px;color:#94a3b8">Cargando cuestionario…</div>
+          </div>
+        </div>
+        <div class="nav-buttons">
+          <button class="btn btn-ghost" id="btn-anterior">← Regresar</button>
+          <button class="btn btn-primary" id="btn-crear">Crear oportunidad →</button>
+        </div>
+      </div>
+
+      <!-- ── PASO 3 ── -->
+      <div data-paso="3" style="display:none">
+        <div class="card">
+          <div class="confirm-box">
+            <div style="font-size:48px;margin-bottom:8px">✅</div>
+            <div style="font-size:16px;font-weight:700;color:#166534">¡Oportunidad creada!</div>
+            <div class="confirm-folio" id="folio-final">—</div>
+            <div style="color:#64748b;font-size:13px;max-width:440px;margin:0 auto">
+              La oportunidad quedó en <strong>primer contacto</strong> y ya aparece en el pipeline.
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:20px">
+          <button class="btn btn-ghost" id="btn-ir-pipeline">🗂️ Ir al pipeline</button>
+          <button class="btn btn-primary" id="btn-ir-detalle">Ver oportunidad →</button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/services/api.js"></script>
+<script src="/js/services/auth.service.js"></script>
+<script src="/js/services/catalogos.service.js"></script>
+<script src="/js/services/clientes.service.js"></script>
+<script src="/js/services/agentes.service.js"></script>
+<script src="/js/services/oportunidades.service.js"></script>
+<script src="/js/utils/format.js"></script>
+<script src="/js/utils/toast.js"></script>
+<script src="/js/utils/modal.js"></script>
+<script src="/js/utils/formErrors.js"></script>
+<script src="/js/utils/formRenderer.js"></script>
+<script src="/js/components/sidebar.js"></script>
+<script src="/js/utils/auth.guard.js"></script>
+<script src="/js/pages/nueva-oportunidad.js"></script>
+</body>
+</html>

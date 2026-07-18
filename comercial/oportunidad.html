@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Oportunidad — Kogu Asistencias</title>
+  <link rel="stylesheet" href="/styles/styles.css">
+  <style>
+    .badge-info{background:#dbeafe;color:#1e40af}
+    .badge-primary{background:#e0e7ff;color:#3730a3}
+    .badge-success{background:#dcfce7;color:#166534}
+    .badge-secondary{background:#f1f5f9;color:#64748b}
+    .badge-warning{background:#fef9c3;color:#92400e}
+    .badge-danger{background:#fee2e2;color:#991b1b}
+    .mini-table{width:100%;border-collapse:collapse;font-size:13px}
+    .mini-table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;padding:6px 8px;border-bottom:1px solid #f1f5f9}
+    .mini-table td{padding:8px;border-bottom:1px solid #f8fafc;vertical-align:top}
+    .data-section__title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#475569;margin-bottom:14px}
+    .data-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+    .data-field__label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;font-weight:700}
+    .data-field__value{font-size:13px;color:#0f172a;margin-top:3px}
+    .cotiz-sel{background:#f0fdf4}
+    .resp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+    .resp-item{font-size:13px}
+    .resp-item .k{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;font-weight:700}
+    .resp-item .v{color:#0f172a;margin-top:2px}
+    .acciones-estatus{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar" id="sidebar-placeholder"></aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="eyebrow"><a href="/comercial/pipeline.html" style="color:#0891b2;text-decoration:none">← Pipeline</a> · Promotoría</div>
+        <h1 id="op-folio">Oportunidad</h1>
+        <p id="op-sub">—</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="acciones-estatus" id="acciones-estatus"></div>
+        <button class="btn btn-primary" id="btn-convertir" style="display:none">🎯 Convertir a póliza</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="card data-section">
+        <div class="data-section__title">Datos de la oportunidad</div>
+        <div class="data-grid" id="op-datos"></div>
+      </div>
+
+      <div class="card data-section">
+        <div class="data-section__title">Cuestionario de primer contacto</div>
+        <div id="op-respuestas"></div>
+      </div>
+
+      <div class="card data-section">
+        <div class="data-section__title" style="display:flex;justify-content:space-between;align-items:center">
+          <span>Cotizaciones</span>
+          <button class="btn btn-ghost btn-sm" id="btn-nueva-cotizacion">＋ Agregar cotización</button>
+        </div>
+        <div id="op-cotizaciones"></div>
+      </div>
+
+      <div class="card data-section">
+        <div class="data-section__title">Bitácora</div>
+        <div id="op-bitacora"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<input type="file" id="input-file-cotiz" style="display:none">
+
+<!-- MODAL: Cotización (alta / editar) -->
+<div class="modal-backdrop" id="modal-cotizacion" style="display:none">
+  <div class="modal-box" style="max-width:560px">
+    <div class="modal-header"><h3 class="modal-title" id="modal-cotiz-titulo">Nueva cotización</h3>
+      <button class="modal-close" onclick="modal.close('modal-cotizacion')">&times;</button></div>
+    <div class="modal-body"><form id="form-cotizacion" autocomplete="off"><div class="form-grid">
+      <div class="form-group form-group--full">
+        <label>Aseguradora <span style="color:#dc2626">*</span></label>
+        <select id="ct-aseguradora" class="form-control"><option value="">— Seleccionar —</option></select>
+      </div>
+      <div class="form-group"><label>Plan / Producto</label><input type="text" id="ct-plan" class="form-control" maxlength="150"></div>
+      <div class="form-group"><label>Prima total</label><input type="number" id="ct-prima" class="form-control" step="0.01" min="0"></div>
+      <div class="form-group"><label>Suma asegurada</label><input type="number" id="ct-suma" class="form-control" step="0.01" min="0"></div>
+      <div class="form-group"><label>Deducible</label><input type="text" id="ct-deducible" class="form-control" maxlength="50"></div>
+      <div class="form-group"><label>Vigencia (días)</label><input type="number" id="ct-vigencia" class="form-control" min="1" max="3650"></div>
+      <div class="form-group form-group--full"><label>Notas</label><textarea id="ct-notas" class="form-control" rows="2" maxlength="2000"></textarea></div>
+    </div></form></div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-cotizacion')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-cotizacion">Guardar</button></div>
+  </div>
+</div>
+
+<!-- MODAL: Motivo (perdida / no_califica) -->
+<div class="modal-backdrop" id="modal-motivo" style="display:none">
+  <div class="modal-box" style="max-width:440px">
+    <div class="modal-header"><h3 class="modal-title" id="modal-motivo-titulo">Motivo</h3>
+      <button class="modal-close" onclick="modal.close('modal-motivo')">&times;</button></div>
+    <div class="modal-body"><div class="form-group">
+      <label>Motivo <span style="color:#dc2626">*</span></label>
+      <textarea id="motivo-texto" class="form-control" rows="3" maxlength="100" placeholder="Indica el motivo (obligatorio)"></textarea></div></div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-motivo')">Cancelar</button>
+      <button class="btn btn-danger" id="btn-confirmar-motivo">Confirmar</button></div>
+  </div>
+</div>
+
+<!-- MODAL: Recontacto (fecha) -->
+<div class="modal-backdrop" id="modal-recontacto" style="display:none">
+  <div class="modal-box" style="max-width:440px">
+    <div class="modal-header"><h3 class="modal-title">Programar recontacto</h3>
+      <button class="modal-close" onclick="modal.close('modal-recontacto')">&times;</button></div>
+    <div class="modal-body"><div class="form-group">
+      <label>Fecha de recontacto <span style="color:#dc2626">*</span></label>
+      <input type="date" id="recontacto-fecha" class="form-control"></div></div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-recontacto')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-confirmar-recontacto">Programar</button></div>
+  </div>
+</div>
+
+<!-- MODAL: Convertir a póliza -->
+<div class="modal-backdrop" id="modal-convertir" style="display:none">
+  <div class="modal-box" style="max-width:560px">
+    <div class="modal-header"><h3 class="modal-title">Convertir a póliza</h3>
+      <button class="modal-close" onclick="modal.close('modal-convertir')">&times;</button></div>
+    <div class="modal-body">
+      <p style="color:#64748b;font-size:12px;margin-bottom:12px">Datos prellenados desde la cotización seleccionada (<span id="cv-cotiz">—</span>).</p>
+      <form id="form-convertir" autocomplete="off"><div class="form-grid">
+        <div class="form-group form-group--full"><label>Número de póliza <span style="color:#dc2626">*</span></label><input type="text" id="cv-numero" class="form-control" maxlength="50"></div>
+        <div class="form-group"><label>Forma de pago <span style="color:#dc2626">*</span></label>
+          <select id="cv-forma-pago" class="form-control">
+            <option value="anual">Anual</option><option value="semestral">Semestral</option>
+            <option value="trimestral">Trimestral</option><option value="mensual">Mensual</option>
+          </select></div>
+        <div class="form-group"><label>Vigencia inicio <span style="color:#dc2626">*</span></label><input type="date" id="cv-vig-inicio" class="form-control"></div>
+        <div class="form-group"><label>Vigencia fin</label><input type="date" id="cv-vig-fin" class="form-control"></div>
+        <div class="form-group"><label>Prima total</label><input type="number" id="cv-prima" class="form-control" step="0.01" min="0"></div>
+        <div class="form-group"><label>Producto</label><input type="text" id="cv-producto" class="form-control" maxlength="150"></div>
+        <div class="form-group"><label>% Comisión</label><input type="number" id="cv-comision" class="form-control" step="0.01" min="0" max="100"></div>
+        <div class="form-group form-group--full"><label>Notas</label><textarea id="cv-notas" class="form-control" rows="2" maxlength="4000"></textarea></div>
+      </div></form>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-convertir')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-confirmar-convertir">Convertir</button></div>
+  </div>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/services/api.js"></script>
+<script src="/js/services/auth.service.js"></script>
+<script src="/js/services/catalogos.service.js"></script>
+<script src="/js/services/oportunidades.service.js"></script>
+<script src="/js/utils/format.js"></script>
+<script src="/js/utils/toast.js"></script>
+<script src="/js/utils/modal.js"></script>
+<script src="/js/utils/formErrors.js"></script>
+<script src="/js/components/sidebar.js"></script>
+<script src="/js/utils/auth.guard.js"></script>
+<script src="/js/pages/oportunidad.js"></script>
+</body>
+</html>
