@@ -6,9 +6,23 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
+  // Roles comerciales puros (agente/promotor) aterrizan en el Panel comercial;
+  // el resto en el Dashboard operativo.
+  function landingUrl() {
+    try {
+      const u = JSON.parse(sessionStorage.getItem('user') || 'null');
+      const roles = Array.isArray(u && u.roles) ? u.roles : [];
+      const OPERATIVOS = ['admin', 'supervisor', 'operador', 'cabina'];
+      const comercialPuro = roles.some(r => r === 'agente' || r === 'promotor')
+        && !roles.some(r => OPERATIVOS.includes(r));
+      return comercialPuro ? '/comercial/dashboard.html' : '/dashboard.html';
+    } catch { return '/dashboard.html'; }
+  }
+
+
   // Si ya está autenticado, redirigir directo al dashboard
   if (sessionStorage.getItem('access_token')) {
-    window.location.href = '/dashboard.html';
+    window.location.href = landingUrl();
     return;
   }
 
@@ -62,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       await authService.login(email, password);
       // Redirigir al dashboard
-      window.location.href = '/dashboard.html';
+      window.location.href = landingUrl();
     } catch (err) {
       showError(err.message || 'Credenciales incorrectas. Intenta de nuevo.');
       setLoading(false);

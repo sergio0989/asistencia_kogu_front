@@ -23,6 +23,7 @@
     ['/bandeja.html',                      '📋 Bandeja de casos',   'operacion',  OPERATIVOS],
     ['/nuevo-caso.html',                   '➕ Nuevo caso',         'operacion',  OPERATIVOS],
 
+    ['/comercial/dashboard.html',          '📈 Panel comercial',    'promotoria', COMERCIAL],
     ['/comercial/pipeline.html',           '🗂️ Pipeline',          'promotoria', COMERCIAL],
     ['/comercial/clientes.html',           '🧑‍💼 Clientes',         'promotoria', COMERCIAL],
     ['/comercial/polizas.html',            '📑 Pólizas',            'promotoria', COMERCIAL],
