@@ -1,0 +1,15 @@
+---
+deployment:
+  tasks:
+    # ⚠️ AJUSTA ESTA RUTA si el docroot de cotizador.kogu.ink no es public_html.
+    #    Se ve en cPanel → Domains, columna "Document Root".
+    - export DEPLOYPATH=/home/kogumlcr/public_html
+    # -a preserva permisos, --delete deja el sitio idéntico al repo.
+    # Se excluye lo que no debe publicarse.
+    - /usr/bin/rsync -a --delete
+        --exclude '.git'
+        --exclude '.cpanel.yml'
+        --exclude 'docs'
+        --exclude 'README.md'
+        --exclude 'err.tmp'
+        /home/kogumlcr/repositories/asistencia_kogu_front/ $DEPLOYPATH/
