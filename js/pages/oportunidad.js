@@ -26,6 +26,7 @@ const MAPA_CONVERTIR = {
   numero_poliza: 'cv-numero', forma_pago: 'cv-forma-pago', vigencia_inicio: 'cv-vig-inicio',
   vigencia_fin: 'cv-vig-fin', prima_total: 'cv-prima', producto: 'cv-producto',
   comision_pct: 'cv-comision', notas: 'cv-notas',
+  prima_neta: 'cv-prima-neta', comision_subagente_pct: 'cv-comision-sub', fecha_venta: 'cv-fecha-venta',
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -51,7 +52,13 @@ function volver() { setTimeout(() => { window.location.href = '/comercial/pipeli
 // ─── Carga ──────────────────────────────────────────────────────────────────
 async function cargarAseguradoras() {
   try { est.aseguradoras = await catalogosService.getEmpresas() || []; }
-  catch { est.aseguradoras = []; }
+  catch (err) {
+    // Sin aseguradoras no se puede cotizar: se avisa en vez de dejar el select
+    // vacío en silencio.
+    console.error('No se pudieron cargar las aseguradoras', err);
+    toast.error('No se pudieron cargar las aseguradoras');
+    est.aseguradoras = [];
+  }
 }
 
 async function cargar() {
@@ -102,6 +109,7 @@ function renderDatos(o) {
     f('Teléfono', o.cliente_telefono ? fmt.esc(fmt.telefono(o.cliente_telefono)) : '—'),
     f('Email', o.cliente_email ? fmt.esc(o.cliente_email) : '—'),
     f('Agente', fmt.esc(o.agente_nombre || '—')),
+    f('Sub-agente', fmt.esc(o.subagente_nombre || '—')),
     f('Ramo', fmt.esc(o.ramo_nombre || o.ramo_clave || '—')),
     f('Canal', `${canal.icon} ${fmt.esc(canal.label)}`),
     f('Promotoría', fmt.esc(o.promotoria_nombre || '—')),
@@ -323,6 +331,18 @@ function abrirConvertir() {
   document.getElementById('cv-producto').value = cotiz.plan || '';
   document.getElementById('cv-comision').value = '';
   document.getElementById('cv-notas').value    = '';
+  document.getElementById('cv-prima-neta').value   = '';
+  document.getElementById('cv-comision-sub').value = '';
+  document.getElementById('cv-fecha-venta').value  = new Date().toISOString().slice(0, 10);
+
+  // La póliza hereda el par (agente, sub-agente) del trato: no se re-pregunta,
+  // solo se muestra lo que ya trae la oportunidad.
+  const heredado = document.getElementById('cv-heredado');
+  const partes = [`Agente: ${est.op.agente_nombre || '—'}`];
+  if (est.op.subagente_nombre) partes.push(`Sub-agente: ${est.op.subagente_nombre}`);
+  heredado.textContent = partes.join(' · ');
+  document.getElementById('grupo-cv-comision-sub').style.display = est.op.subagente_nombre ? '' : 'none';
+
   modal.open('modal-convertir');
 }
 
@@ -345,6 +365,22 @@ async function confirmarConvertir() {
   if (producto) data.producto     = producto;
   if (comision) data.comision_pct = Number(comision);
   if (notas)    data.notas        = notas;
+
+  const primaNeta   = document.getElementById('cv-prima-neta').value;
+  const comisionSub = document.getElementById('cv-comision-sub').value;
+  const fechaVenta  = document.getElementById('cv-fecha-venta').value;
+  if (primaNeta) {
+    if (prima && Number(primaNeta) > Number(prima)) {
+      formErrors.aplicar(
+        { status: 422, details: [{ field: 'prima_neta', message: 'La prima neta no puede ser mayor que la prima total' }] },
+        MAPA_CONVERTIR,
+      );
+      return;
+    }
+    data.prima_neta = Number(primaNeta);
+  }
+  if (comisionSub) data.comision_subagente_pct = Number(comisionSub);
+  if (fechaVenta)  data.fecha_venta = fechaVenta;
 
   const btn = document.getElementById('btn-confirmar-convertir');
   btn.disabled = true; btn.textContent = 'Convirtiendo…';

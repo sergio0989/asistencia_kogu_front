@@ -18,10 +18,17 @@ const CARD_CAP = 100;
 // ¿El usuario puede ver/filtrar por agente? (rol no-agente-puro)
 const PUEDE_AGENTES = authService.hasAnyRole('admin', 'supervisor', 'operador', 'promotor');
 
+// 'elevado' | 'agente_raiz' | 'subagente' — un agente raíz no filtra por agente
+// (solo ve su cartera) pero sí por cuál de sus sub-agentes trabaja el trato.
+let perfil = 'elevado';
+
 const state = { filtros: {} };
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await Promise.all([cargarRamos(), cargarAgentes()]);
+  await authService.asegurarPerfilComercial();
+  perfil = authService.perfilComercial();
+
+  await Promise.all([cargarRamos(), montarFiltroAgente(), montarFiltroSubagente()]);
   await Promise.all([cargarKpis(), cargarPipeline()]);
 
   let timer;
@@ -34,6 +41,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   document.getElementById('filtro-agente')?.addEventListener('change', e => {
     state.filtros.agente_id = e.target.value; cargarPipeline();
+  });
+  document.getElementById('filtro-subagente')?.addEventListener('change', e => {
+    state.filtros.subagente_id = e.target.value; cargarPipeline();
   });
   document.getElementById('filtro-canal')?.addEventListener('change', e => {
     state.filtros.canal_origen = e.target.value; cargarPipeline();
@@ -52,19 +62,55 @@ async function cargarRamos() {
     document.getElementById('filtro-ramo').innerHTML =
       '<option value="">Todos los ramos</option>' +
       ramos.map(r => `<option value="${fmt.esc(r.id)}">${fmt.esc(r.nombre)}</option>`).join('');
-  } catch { /* silencioso */ }
+  } catch (err) {
+    console.error('No se pudieron cargar los ramos', err);
+    toast.error('No se pudieron cargar los ramos');
+  }
 }
 
-async function cargarAgentes() {
+// Bf-07: los filtros de agente pasan de <select> volcado (limit:200) a pickers
+// con búsqueda contra el servidor. Se montan por separado porque su alcance no
+// es el mismo: filtrar por AGENTE solo tiene sentido para quien ve varios,
+// mientras que filtrar por SUB-AGENTE también le sirve al agente raíz para ver
+// qué trabaja cada uno de los suyos.
+let pkFiltroAgente = null;
+let pkFiltroSub    = null;
+
+function montarFiltroAgente() {
   if (!PUEDE_AGENTES) return;   // agente puro: el API fuerza su cartera
-  try {
-    const res = await agentesService.listar({ limit: 200 });
-    const agentes = res?.data || [];
-    const filtro = document.getElementById('filtro-agente');
-    filtro.innerHTML = '<option value="">Todos los agentes</option>' +
-      agentes.map(a => `<option value="${fmt.esc(a.id)}">${fmt.esc(a.nombre)}</option>`).join('');
-    filtro.style.display = '';
-  } catch { /* si no hay acceso, sin selector */ }
+  pkFiltroAgente = picker.bind({
+    inputId:     'filtro-agente-label', hiddenId: 'filtro-agente',
+    botonId:     'filtro-agente-btn',   limpiarId: 'filtro-agente-clear',
+    titulo:      'Seleccionar agente',
+    placeholder: 'Nombre, RFC o correo…',
+    vacio:       'Escribe para buscar agentes.',
+    buscar:      (q, page) => agentesService.listar({ buscar: q, page, limit: 20 }),
+    item:        a => ({ id: a.id, titulo: a.nombre, sub: a.email || a.rfc || '—' }),
+  });
+  document.getElementById('grupo-filtro-agente').style.display = '';
+}
+
+// Filtro por sub-agente (B2-06: el backend acepta subagente_id en el listado de
+// oportunidades). Un sub-agente no lo necesita: no tiene equipo debajo.
+function montarFiltroSubagente() {
+  if (!PUEDE_AGENTES && perfil !== 'agente_raiz') return;
+
+  // El agente raíz filtra dentro de su propio equipo: fijar agente_padre_id lo
+  // deja además fuera de su propia lista, que como "sub-agente" sería ruido.
+  const padre = perfil === 'agente_raiz'
+    ? (authService.getUser()?.agente_id || undefined)
+    : undefined;
+
+  pkFiltroSub = picker.bind({
+    inputId:     'filtro-subagente-label', hiddenId: 'filtro-subagente',
+    botonId:     'filtro-subagente-btn',   limpiarId: 'filtro-subagente-clear',
+    titulo:      'Filtrar por sub-agente',
+    placeholder: 'Nombre, RFC o correo…',
+    vacio:       'Escribe para buscar sub-agentes.',
+    buscar:      (q, page) => agentesService.listar({ buscar: q, page, limit: 20, agente_padre_id: padre }),
+    item:        a => ({ id: a.id, titulo: a.nombre, sub: a.padre_nombre ? `Depende de ${a.padre_nombre}` : 'Agente raíz' }),
+  });
+  document.getElementById('grupo-filtro-subagente').style.display = '';
 }
 
 // ─── KPIs (snapshot global del pipeline, independiente de los filtros) ───────
@@ -175,7 +221,9 @@ function toggleCerradas() {
 
 function limpiarFiltros() {
   state.filtros = {};
-  ['filtro-buscar', 'filtro-ramo', 'filtro-agente', 'filtro-canal']
+  pkFiltroAgente?.set('', '');
+  pkFiltroSub?.set('', '');
+  ['filtro-buscar', 'filtro-ramo', 'filtro-canal']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   cargarPipeline();
 }

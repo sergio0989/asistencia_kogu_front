@@ -59,16 +59,28 @@ function renderDatos(p) {
     ? p.asistencias_incluidas.map(a => `${fmt.esc(a.tipo)} (${fmt.esc(a.eventos)})`).join(', ')
     : '—';
   const f = (label, val) => `<div class="data-field"><div class="data-field__label">${label}</div><div class="data-field__value">${val}</div></div>`;
+  const pct = (v) => (v != null ? `${fmt.esc(v)}%` : '—');
+  // El backend calcula las comisiones sobre la prima neta y devuelve NULL
+  // cuando no son calculables (falta la prima neta o el %). "No calculable" y
+  // "cero" son cosas distintas para negocio: NULL se muestra como "—".
+  const montoComision = (v) => (v != null ? fmt.moneda(v) : '—');
   document.getElementById('pol-datos').innerHTML =
     f('Estatus', fmt.estatusPolizaBadge(p.estatus_calculado || p.estatus) + (p.dias_para_vencer != null ? ` <span style="color:#94a3b8;font-size:11px">(${fmt.esc(p.dias_para_vencer)} días)</span>` : '')) +
     f('Cliente', `<a href="/comercial/cliente.html?id=${p.cliente_id}" style="color:#0891b2;text-decoration:none">${fmt.esc(p.cliente_nombre || '—')}</a>`) +
     f('Teléfono cliente', p.cliente_telefono ? fmt.esc(fmt.telefono(p.cliente_telefono)) : '—') +
     f('Agente', fmt.esc(p.agente_nombre || '—')) +
+    f('Sub-agente', fmt.esc(p.subagente_nombre || '—')) +
     f('Producto', p.producto ? fmt.esc(p.producto) : '—') +
+    f('Uso', fmt.esc(p.uso_nombre || '—')) +
+    f('Fecha de venta', p.fecha_venta ? fmt.fecha(p.fecha_venta) : '—') +
     f('Vigencia', `${fmt.fecha(p.vigencia_inicio)} – ${fmt.fecha(p.vigencia_fin)}`) +
     f('Prima total', fmt.moneda(p.prima_total)) +
+    f('Prima neta', p.prima_neta != null ? fmt.moneda(p.prima_neta) : '—') +
     f('Forma de pago', fmt.esc(p.forma_pago || '—')) +
-    f('% Comisión', p.comision_pct != null ? `${fmt.esc(p.comision_pct)}%` : '—') +
+    f('Comisión agente', pct(p.comision_pct)) +
+    f('Monto comisión agente', montoComision(p.comision_monto)) +
+    f('Comisión sub-agente', pct(p.comision_subagente_pct)) +
+    f('Monto comisión sub-agente', montoComision(p.comision_subagente_monto)) +
     f('Asistencias incluidas', asist) +
     f('Póliza anterior', p.poliza_anterior_id
       ? `<a href="/comercial/poliza.html?id=${p.poliza_anterior_id}" style="color:#0891b2;text-decoration:none">${fmt.esc(p.poliza_anterior_numero || 'Ver cadena')}</a>`
@@ -180,6 +192,9 @@ function abrirEditar() {
   document.getElementById('e-producto').value = poliza.producto || '';
   document.getElementById('e-prima').value    = poliza.prima_total || '';
   document.getElementById('e-comision').value = poliza.comision_pct || '';
+  document.getElementById('e-prima-neta').value   = poliza.prima_neta ?? '';
+  document.getElementById('e-comision-sub').value = poliza.comision_subagente_pct ?? '';
+  document.getElementById('e-fecha-venta').value  = (poliza.fecha_venta || '').slice(0, 10);
   document.getElementById('e-notas').value    = poliza.notas || '';
   modal.open('modal-editar');
 }
@@ -190,6 +205,9 @@ async function guardarEditar() {
     producto:      document.getElementById('e-producto').value.trim() || undefined,
     prima_total:   document.getElementById('e-prima').value ? Number(document.getElementById('e-prima').value) : undefined,
     comision_pct:  document.getElementById('e-comision').value ? Number(document.getElementById('e-comision').value) : undefined,
+    prima_neta:             document.getElementById('e-prima-neta').value ? Number(document.getElementById('e-prima-neta').value) : undefined,
+    comision_subagente_pct: document.getElementById('e-comision-sub').value ? Number(document.getElementById('e-comision-sub').value) : undefined,
+    fecha_venta:            document.getElementById('e-fecha-venta').value || undefined,
     notas:         document.getElementById('e-notas').value.trim() || undefined,
   };
   const btn = document.getElementById('btn-guardar-editar');
@@ -200,7 +218,11 @@ async function guardarEditar() {
     modal.close('modal-editar');
     await cargar();
   } catch (err) {
-    if (!formErrors.aplicar(err, { numero_poliza: 'e-numero', producto: 'e-producto', prima_total: 'e-prima', comision_pct: 'e-comision', notas: 'e-notas' })) {
+    if (!formErrors.aplicar(err, {
+      numero_poliza: 'e-numero', producto: 'e-producto', prima_total: 'e-prima',
+      comision_pct: 'e-comision', notas: 'e-notas',
+      prima_neta: 'e-prima-neta', comision_subagente_pct: 'e-comision-sub', fecha_venta: 'e-fecha-venta',
+    })) {
       toast.error(err.message || 'Error al guardar');
     }
   } finally { btn.disabled = false; btn.textContent = 'Guardar'; }

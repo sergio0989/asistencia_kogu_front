@@ -17,7 +17,7 @@ const MAPA_ERRORES = {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await Promise.all([cargarAgentes(), cargarPromotorias()]);
+  await Promise.all([montarPickersAgente(), cargarPromotorias()]);
   await cargarClientes();
 
   let timer;
@@ -37,23 +37,38 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ─── Catálogos de apoyo ───────────────────────────────────────────────────────
-async function cargarAgentes() {
+// Bf-07: los agentes ya no se vuelcan completos (limit:200) a dos <select>;
+// se buscan contra el servidor con el picker. Nada que precargar aquí: basta
+// con enlazar los campos y mostrar el filtro a quien puede usarlo.
+let pkFiltroAgente = null;
+let pkAgenteForm   = null;
+
+function montarPickersAgente() {
   if (!PUEDE_AGENTES) {
     document.getElementById('grupo-agente').style.display = 'none';
     return;
   }
-  try {
-    const res = await agentesService.listar({ limit: 200 });
-    const agentes = res?.data || [];
-    const optsFiltro = ['<option value="">Todos los agentes</option>']
-      .concat(agentes.map(a => `<option value="${fmt.esc(a.id)}">${fmt.esc(a.nombre)}</option>`)).join('');
-    const filtro = document.getElementById('filtro-agente');
-    filtro.innerHTML = optsFiltro;        // values/labels escapados
-    filtro.style.display = '';
-    document.getElementById('c-agente').innerHTML =
-      '<option value="">— Sin asignar —</option>' +
-      agentes.map(a => `<option value="${fmt.esc(a.id)}">${fmt.esc(a.nombre)}</option>`).join('');
-  } catch { /* el API decide el scope; si no hay acceso, sin selector */ }
+
+  const opciones = {
+    titulo:      'Seleccionar agente',
+    placeholder: 'Nombre, RFC o correo…',
+    vacio:       'Escribe para buscar agentes.',
+    buscar:      (q, page) => agentesService.listar({ buscar: q, page, limit: 20 }),
+    item:        a => ({ id: a.id, titulo: a.nombre, sub: a.email || a.rfc || '—' }),
+  };
+
+  pkFiltroAgente = picker.bind({
+    inputId: 'filtro-agente-label', hiddenId: 'filtro-agente',
+    botonId: 'filtro-agente-btn',   limpiarId: 'filtro-agente-clear',
+    ...opciones,
+  });
+  document.getElementById('grupo-filtro-agente').style.display = '';
+
+  pkAgenteForm = picker.bind({
+    inputId: 'c-agente-label', hiddenId: 'c-agente',
+    botonId: 'c-agente-btn',   limpiarId: 'c-agente-clear',
+    ...opciones,
+  });
 }
 
 async function cargarPromotorias() {
@@ -154,7 +169,8 @@ async function abrirModalEditar(id) {
     document.getElementById('c-email').value        = c.email || '';
     document.getElementById('c-origen').value       = c.origen_contacto || '';
     document.getElementById('c-notas').value        = c.notas || '';
-    if (PUEDE_AGENTES) document.getElementById('c-agente').value = c.agente_id || '';
+    // El detalle ya trae el nombre del agente: no hace falta buscarlo.
+    if (PUEDE_AGENTES) pkAgenteForm?.set(c.agente_id || '', c.agente_nombre || '');
     // En edición el consentimiento ya existe; se oculta el bloque obligatorio.
     document.getElementById('grupo-consentimiento').style.display = 'none';
     modal.open('modal-cliente');
@@ -218,9 +234,10 @@ async function guardarCliente() {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function limpiarFiltros() {
   state.filtros = {}; state.page = 1;
-  ['filtro-buscar', 'filtro-estado', 'filtro-agente'].forEach(id => {
+  ['filtro-buscar', 'filtro-estado'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
+  pkFiltroAgente?.set('', '');
   cargarClientes();
 }
 
@@ -230,7 +247,7 @@ function limpiarForm() {
    'c-aviso-version'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('c-tipo-persona').value = 'fisica';
   document.getElementById('c-consent-canal').value = '';
-  if (PUEDE_AGENTES) document.getElementById('c-agente').value = '';
+  if (PUEDE_AGENTES) pkAgenteForm?.set('', '');
 }
 
 window.verCliente       = verCliente;

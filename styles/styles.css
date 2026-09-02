@@ -2609,8 +2609,65 @@ tr.urgencia-row--bajo:hover{background:#f8fafc}
 [data-tab]:hover:not(.active){background:#f8fafc}
 
 /* ── Retícula de datos para pantallas de detalle (póliza, cliente, oportunidad) ── */
+/* Bloque de sección dentro de una .card. Vivía suelto en detalle.html y
+   oportunidad.html (KA-F-14), así que en el panel comercial, la ficha de
+   cliente, renovaciones y el detalle de póliza los títulos salían sin
+   formato. detalle.html conserva su variante local, más densa, a juego con
+   sus overrides de .data-grid/.data-field. */
+.data-section{margin-bottom:14px}
+.data-section__title{
+  font-size:12px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:#475569;
+  margin-bottom:14px;
+}
+
 .data-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
 .data-field{background:#f8fafc;border:1px solid #eef1f5;border-radius:10px;padding:10px 13px}
 .data-field__label{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;font-weight:700}
 .data-field__value{font-size:13.5px;color:#0f172a;margin-top:4px;font-weight:600;line-height:1.45}
 .data-field__value a{color:#0891b2;text-decoration:none;font-weight:700}
+
+/* ── Picker de búsqueda (Bf-07) ────────────────────────────────────────────
+   Modal reutilizable que sustituye a los <select> que se llenaban bajando la
+   tabla completa. Comparte .modal-box; solo define su lista y el campo que lo
+   dispara. */
+.picker-box{ width:min(520px,94vw); }
+
+.picker-list{
+  margin-top:12px;
+  max-height:min(52vh,420px);
+  overflow-y:auto;
+  border:1px solid #e2e8f0;
+  border-radius:12px;
+}
+
+.picker-item{
+  padding:10px 12px;
+  cursor:pointer;
+  border-bottom:1px solid #f1f5f9;
+}
+.picker-item:last-child{ border-bottom:none; }
+.picker-item:hover,
+.picker-item--activo{ background:#f8fafc; }
+.picker-item--activo{ box-shadow:inset 3px 0 0 var(--primary,#2563eb); }
+
+.picker-item__t{ font-weight:600; font-size:13px; color:#0f172a; }
+.picker-item__s{ font-size:11px; color:#64748b; margin-top:2px; }
+
+.picker-msg{
+  padding:24px 12px;
+  text-align:center;
+  font-size:13px;
+  color:#94a3b8;
+}
+.picker-msg--error{ color:#dc2626; }
+
+.picker-mas{ display:block; width:100%; border-radius:0 0 12px 12px; }
+
+/* Campo que dispara el picker: input readonly + botón de lupa */
+.picker-field{ display:flex; gap:6px; align-items:center; }
+.picker-field input[type="text"]{ flex:1; cursor:pointer; background:#fff; }
+.picker-field input[type="text"]:disabled{ cursor:not-allowed; background:#f1f5f9; }

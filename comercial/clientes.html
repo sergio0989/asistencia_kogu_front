@@ -44,9 +44,13 @@
           <option value="cliente">Cliente</option>
           <option value="inactivo">Inactivo</option>
         </select>
-        <select id="filtro-agente" style="display:none">
-          <option value="">Todos los agentes</option>
-        </select>
+        <span class="picker-field" id="grupo-filtro-agente" style="display:none">
+          <input type="text" id="filtro-agente-label" class="form-control" readonly
+                 placeholder="Todos los agentes" style="min-width:180px">
+          <button type="button" class="btn btn-ghost btn-sm" id="filtro-agente-btn" title="Buscar agente">🔍</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="filtro-agente-clear" title="Quitar filtro">✕</button>
+        </span>
+        <input type="hidden" id="filtro-agente">
         <button class="btn btn-ghost btn-sm" id="btn-limpiar">Limpiar</button>
         <span id="contador-clientes" style="margin-left:auto;font-size:13px;color:#64748b"></span>
       </div>
@@ -113,7 +117,13 @@
           </div>
           <div class="form-group" id="grupo-agente">
             <label>Agente de cartera</label>
-            <select id="c-agente" class="form-control"><option value="">— Sin asignar —</option></select>
+            <div class="picker-field">
+              <input type="text" id="c-agente-label" class="form-control" readonly
+                     placeholder="— Sin asignar —">
+              <button type="button" class="btn btn-ghost btn-sm" id="c-agente-btn" title="Buscar agente">🔍</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="c-agente-clear" title="Quitar">✕</button>
+            </div>
+            <input type="hidden" id="c-agente">
           </div>
           <div class="form-group" id="grupo-promotoria" style="display:none">
             <label>Promotoría</label>
@@ -157,6 +167,7 @@
 <script src="/js/utils/format.js"></script>
 <script src="/js/utils/toast.js"></script>
 <script src="/js/utils/modal.js"></script>
+<script src="/js/utils/picker.js"></script>
 <script src="/js/utils/table.js"></script>
 <script src="/js/utils/formErrors.js"></script>
 <script src="/js/components/sidebar.js"></script>

@@ -478,54 +478,99 @@ async function guardarConductor() {
 }
 
 // ─── Estado del modal de asignación ──────────────────────────────────────────
+// Bf-07: antes se bajaban dos listas completas con limit:200 y se filtraba en
+// memoria. El backend recorta ese limit a 100 sin avisar, así que con más de
+// 100 proveedores algunos no aparecían nunca y no había forma de notarlo.
+// Ahora la búsqueda va contra el servidor, paginada y con token de secuencia.
 const asig = {
-  especializados: [],
-  todos:          [],
-  segmento:       'especializados',
-  busqueda:       '',
+  rows:      [],
+  segmento:  'especializados',
+  busqueda:  '',
+  page:      1,
+  pages:     1,
+  token:     0,
+  timer:     null,
+  cargando:  false,
 };
+
+const ASIG_LIMIT = 20;
 
 async function cargarAbogadosModal() {
   const list = document.getElementById('lista-abogados');
   if (!list) return;
-  // estático: estado de carga
-  list.innerHTML = '<div style="text-align:center;padding:32px;color:#94a3b8">Cargando proveedores…</div>';
 
   asig.busqueda = '';
+  asig.segmento = 'especializados';
   const inputBuscar = document.getElementById('asig-buscar');
   if (inputBuscar) inputBuscar.value = '';
 
-  try {
-    const tipoId = expediente?.tipo_id;
-
-    const [resEsp, resTod] = await Promise.all([
-      tipoId
-        ? proveedoresService.listar({ tipo_id: tipoId, limit: 200 })
-        : Promise.resolve({ data: [] }),
-      proveedoresService.listar({ limit: 200 }),
-    ]);
-
-    asig.especializados = (resEsp.data || []).sort(ordenarPorCarga);
-    asig.todos          = (resTod.data  || []).sort(ordenarPorCarga);
-
-    const segEl = document.getElementById('asig-segment');
-    if (!asig.especializados.length) {
-      // Sin especializados → mostrar todos directamente sin el segmento
+  // ¿Hay especializados para este tipo? Una sola consulta lo decide; si no los
+  // hay, se oculta el segmento y se arranca en "todos" (igual que antes).
+  const segEl = document.getElementById('asig-segment');
+  if (expediente?.tipo_id) {
+    try {
+      const res = await proveedoresService.listar({ tipo_id: expediente.tipo_id, limit: 1 });
+      const hay = (res?.meta?.total ?? (res?.data || []).length) > 0;
+      asig.segmento = hay ? 'especializados' : 'todos';
+      if (segEl) segEl.style.display = hay ? '' : 'none';
+    } catch (err) {
+      // Sin poder decidir, se muestran todos: es el superconjunto seguro.
+      console.error('No se pudo consultar proveedores especializados', err);
       asig.segmento = 'todos';
       if (segEl) segEl.style.display = 'none';
-    } else {
-      asig.segmento = 'especializados';
-      if (segEl) segEl.style.display = '';
-      document.getElementById('seg-btn-esp')?.classList.add('active');
-      document.getElementById('seg-btn-todos')?.classList.remove('active');
     }
+  } else {
+    asig.segmento = 'todos';
+    if (segEl) segEl.style.display = 'none';
+  }
 
+  document.getElementById('seg-btn-esp')?.classList.toggle('active',   asig.segmento === 'especializados');
+  document.getElementById('seg-btn-todos')?.classList.toggle('active', asig.segmento === 'todos');
+
+  await buscarProveedores(1);
+}
+
+// Búsqueda contra el servidor. Mismo patrón que picker.js: debounce en el
+// input, token de secuencia para descartar respuestas viejas y errores a la
+// vista con reintento.
+async function buscarProveedores(page) {
+  const list = document.getElementById('lista-abogados');
+  if (!list) return;
+
+  asig.page = page;
+  asig.cargando = true;
+  const miToken = ++asig.token;
+
+  if (page === 1) {
+    // estático: estado de carga
+    list.innerHTML = '<div style="text-align:center;padding:32px;color:#94a3b8">Cargando proveedores…</div>';
+  }
+
+  try {
+    const params = { page, limit: ASIG_LIMIT };
+    if (asig.busqueda) params.buscar = asig.busqueda;
+    if (asig.segmento === 'especializados' && expediente?.tipo_id) params.tipo_id = expediente.tipo_id;
+
+    const res = await proveedoresService.listar(params);
+    if (miToken !== asig.token) return;   // respuesta obsoleta
+
+    // El orden por carga se aplica a cada página al llegar: dentro de la página
+    // los menos cargados primero, sin reordenar lo que el usuario ya veía.
+    const rows = (res?.data || []).slice().sort(ordenarPorCarga);
+    asig.pages = res?.meta?.pages || 1;
+    asig.rows  = page === 1 ? rows : asig.rows.concat(rows);
     renderProveedoresModal();
-
-  } catch {
-    // estático: mensaje de error fijo
-    if (list) list.innerHTML = '<div style="color:#dc2626;text-align:center;padding:24px;font-size:13px">Error al cargar proveedores</div>';
-    toast.error('Error al cargar proveedores');
+  } catch (err) {
+    if (miToken !== asig.token) return;
+    console.error('Error al cargar proveedores', err);
+    // estático salvo el mensaje, que se escapa.
+    list.innerHTML = `<div style="color:#dc2626;text-align:center;padding:24px;font-size:13px">
+        ${fmt.esc(err?.message || 'Error al cargar proveedores')}
+        <div><button type="button" class="btn btn-ghost btn-sm" style="margin-top:8px"
+             onclick="buscarProveedores(${page})">Reintentar</button></div>
+      </div>`;
+  } finally {
+    if (miToken === asig.token) asig.cargando = false;
   }
 }
 
@@ -541,9 +586,8 @@ function renderProveedoresModal() {
   const list = document.getElementById('lista-abogados');
   if (!list) return;
 
-  const fuente = asig.segmento === 'especializados' ? asig.especializados : asig.todos;
-  const q      = asig.busqueda.toLowerCase();
-  const rows   = q ? fuente.filter(p => p.nombre?.toLowerCase().includes(q)) : fuente;
+  const rows = asig.rows;
+  const q    = asig.busqueda;
 
   if (!rows.length) {
     // estático: estado vacío (mensajes fijos)
@@ -581,18 +625,27 @@ function renderProveedoresModal() {
         <span class="carga-pill carga-pill--${claseCarga}">${labelCarga}</span>
       </div>`;
   }).join('');
+
+  if (asig.page < asig.pages) {
+    list.insertAdjacentHTML('beforeend',
+      `<button type="button" class="btn btn-ghost btn-sm" style="width:100%;margin-top:6px"
+               onclick="buscarProveedores(${asig.page + 1})">
+         Cargar más (${fmt.esc(asig.page)} de ${fmt.esc(asig.pages)})
+       </button>`);
+  }
 }
 
 function filtrarProveedoresModal(valor) {
   asig.busqueda = (valor || '').trim();
-  renderProveedoresModal();
+  clearTimeout(asig.timer);
+  asig.timer = setTimeout(() => buscarProveedores(1), 300);
 }
 
 function cambiarSegmento(seg) {
   asig.segmento = seg;
   document.getElementById('seg-btn-esp')?.classList.toggle('active',   seg === 'especializados');
   document.getElementById('seg-btn-todos')?.classList.toggle('active', seg === 'todos');
-  renderProveedoresModal();
+  buscarProveedores(1);
 }
 
 async function asignarAbogado(proveedorId) {
@@ -978,6 +1031,7 @@ function setHtml(id, html) {
 }
 
 window.asignarAbogado          = asignarAbogado;
+window.buscarProveedores       = buscarProveedores;   // "Cargar más" / "Reintentar" inline
 window.filtrarProveedoresModal = filtrarProveedoresModal;
 window.cambiarSegmento         = cambiarSegmento;
 window.descargarDocumento      = descargarDocumento;

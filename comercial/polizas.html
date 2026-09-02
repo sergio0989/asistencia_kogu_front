@@ -49,6 +49,14 @@
         </select>
         <select id="filtro-ramo"><option value="">Todos los ramos</option></select>
         <select id="filtro-aseguradora"><option value="">Todas las aseguradoras</option></select>
+        <span class="picker-field" id="grupo-filtro-subagente" style="display:none">
+          <input type="text" id="filtro-subagente-label" class="form-control" readonly
+                 placeholder="Todos los sub-agentes" style="min-width:180px">
+          <button type="button" class="btn btn-ghost btn-sm" id="filtro-subagente-btn" title="Buscar sub-agente">🔍</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="filtro-subagente-clear" title="Quitar filtro">✕</button>
+        </span>
+        <input type="hidden" id="filtro-subagente">
+        <select id="filtro-uso" style="display:none"><option value="">Todos los usos</option></select>
         <label style="font-size:12px;color:#64748b">Vence desde <input type="date" id="filtro-venc-desde"></label>
         <label style="font-size:12px;color:#64748b">hasta <input type="date" id="filtro-venc-hasta"></label>
         <button class="btn btn-ghost btn-sm" id="btn-limpiar">Limpiar</button>
@@ -85,29 +93,72 @@
         <div class="form-grid">
           <div class="form-group form-group--full">
             <label>Cliente <span style="color:#dc2626">*</span></label>
-            <select id="p-cliente" class="form-control"><option value="">— Seleccionar cliente —</option></select>
+            <div class="picker-field">
+              <input type="text" id="p-cliente-label" class="form-control" readonly
+                     placeholder="Buscar por nombre, RFC o teléfono…">
+              <button type="button" class="btn btn-ghost btn-sm" id="p-cliente-btn">🔍</button>
+            </div>
+            <input type="hidden" id="p-cliente">
+          </div>
+          <!-- Aviso para el sub-agente: el backend hace el reparto solo. -->
+          <div class="form-group form-group--full" id="p-aviso-subagente" style="display:none">
+            <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:10px 12px;font-size:12px;color:#0369a1">
+              <span id="p-aviso-subagente-txt"></span>
+            </div>
+          </div>
+          <div class="form-group" id="grupo-p-agente" style="display:none">
+            <label>Agente</label>
+            <div class="picker-field">
+              <input type="text" id="p-agente-label" class="form-control" readonly
+                     placeholder="— Sin asignar —">
+              <button type="button" class="btn btn-ghost btn-sm" id="p-agente-btn" title="Buscar agente">🔍</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="p-agente-clear" title="Quitar">✕</button>
+            </div>
+            <input type="hidden" id="p-agente">
+          </div>
+          <div class="form-group" id="grupo-p-subagente" style="display:none">
+            <label>Sub-agente</label>
+            <div class="picker-field">
+              <input type="text" id="p-subagente-label" class="form-control" readonly
+                     placeholder="Elige primero un agente">
+              <button type="button" class="btn btn-ghost btn-sm" id="p-subagente-btn" title="Buscar sub-agente">🔍</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="p-subagente-clear" title="Quitar">✕</button>
+            </div>
+            <input type="hidden" id="p-subagente">
           </div>
           <div class="form-group"><label>Aseguradora <span style="color:#dc2626">*</span></label>
             <select id="p-aseguradora" class="form-control"><option value="">—</option></select></div>
           <div class="form-group"><label>Ramo <span style="color:#dc2626">*</span></label>
             <select id="p-ramo" class="form-control"><option value="">—</option></select></div>
+          <div class="form-group" id="grupo-p-uso" style="display:none">
+            <label>Uso</label>
+            <select id="p-uso" class="form-control"><option value="">—</option></select></div>
           <div class="form-group"><label>Número de póliza <span style="color:#dc2626">*</span></label>
             <input type="text" id="p-numero" class="form-control" maxlength="50"></div>
           <div class="form-group"><label>Producto</label>
             <input type="text" id="p-producto" class="form-control" maxlength="150"></div>
+          <div class="form-group"><label>Fecha de venta</label>
+            <input type="date" id="p-fecha-venta" class="form-control"></div>
           <div class="form-group"><label>Vigencia inicio <span style="color:#dc2626">*</span></label>
             <input type="date" id="p-vig-inicio" class="form-control"></div>
           <div class="form-group"><label>Vigencia fin <span style="color:#dc2626">*</span></label>
             <input type="date" id="p-vig-fin" class="form-control"></div>
-          <div class="form-group"><label>Prima total <span style="color:#dc2626">*</span></label>
-            <input type="number" id="p-prima" class="form-control" step="0.01" min="0"></div>
+          <div class="form-group"><label>Prima total (lo que paga el cliente) <span style="color:#dc2626">*</span></label>
+            <input type="number" id="p-prima" class="form-control" step="0.01" min="0">
+            <div style="font-size:11px;color:#94a3b8;margin-top:4px">El plan de recibos se genera sobre la prima total.</div></div>
+          <div class="form-group"><label>Prima neta</label>
+            <input type="number" id="p-prima-neta" class="form-control" step="0.01" min="0">
+            <div style="font-size:11px;color:#94a3b8;margin-top:4px">Base de cálculo de las comisiones.</div></div>
           <div class="form-group"><label>Forma de pago <span style="color:#dc2626">*</span></label>
             <select id="p-forma-pago" class="form-control">
               <option value="anual">Anual</option><option value="semestral">Semestral</option>
               <option value="trimestral">Trimestral</option><option value="mensual">Mensual</option>
             </select></div>
-          <div class="form-group"><label>% Comisión</label>
+          <div class="form-group"><label>Comisión agente % (sobre prima neta)</label>
             <input type="number" id="p-comision" class="form-control" step="0.01" min="0" max="100"></div>
+          <div class="form-group" id="grupo-p-comision-sub" style="display:none">
+            <label>Comisión sub-agente % (sobre prima neta)</label>
+            <input type="number" id="p-comision-sub" class="form-control" step="0.01" min="0" max="100"></div>
           <div class="form-group form-group--full">
             <label>Asistencias incluidas</label>
             <div id="asist-list"></div>
@@ -149,9 +200,11 @@
 <script src="/js/services/catalogos.service.js"></script>
 <script src="/js/services/clientes.service.js"></script>
 <script src="/js/services/polizas.service.js"></script>
+<script src="/js/services/agentes.service.js"></script>
 <script src="/js/utils/format.js"></script>
 <script src="/js/utils/toast.js"></script>
 <script src="/js/utils/modal.js"></script>
+<script src="/js/utils/picker.js"></script>
 <script src="/js/utils/table.js"></script>
 <script src="/js/utils/formErrors.js"></script>
 <script src="/js/components/sidebar.js"></script>
