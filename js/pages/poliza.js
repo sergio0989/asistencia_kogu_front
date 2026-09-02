@@ -164,8 +164,13 @@ function renderDocumentos(docs) {
     </div>`).join('');
 }
 async function descargarDoc(docId) {
-  try { const { url } = await polizasService.getUrlDocumento(polizaId, docId); window.open(url, '_blank'); }
-  catch { toast.error('No se pudo obtener el documento'); }
+  try {
+    const { url, nombre } = await polizasService.getUrlDocumento(polizaId, docId);
+    await descargas.abrirDocumento(url, nombre);
+  } catch (err) {
+    console.error('No se pudo obtener el documento', err);
+    toast.error(err.message || 'No se pudo obtener el documento');
+  }
 }
 async function subirDocumento(file) {
   try { await polizasService.subirDocumento(polizaId, file); toast.success('Documento subido'); await cargar(); }

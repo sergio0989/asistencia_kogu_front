@@ -17,6 +17,7 @@ const nc = {
   subtipoId:    null,
   formularioId: null,
   expedienteId: null,
+  tipoIdCreado: null,
   folio:        null,
   canales:      ['llamada', 'web', 'whatsapp', 'interno'],
 };
@@ -117,12 +118,20 @@ function inicializarEventos() {
 // ─── Navegación del stepper ───────────────────────────────────────────────────
 async function avanzarPaso() {
   if (nc.pasoActual === 1) {
-    const valido = await crearExpediente();
-    if (!valido) return;
+    // KA-F-05: esto llamaba a crearExpediente() SIEMPRE. Avanzar, retroceder y
+    // volver a avanzar creaba un segundo expediente: quedaban huérfanos en la
+    // bandeja y se quemaban folios del contador atómico. Si ya existe, se
+    // actualiza en vez de crear otro.
+    const ok = nc.expedienteId ? await actualizarExpediente() : await crearExpediente();
+    if (!ok) return;
     await cargarFormularioDinamico();
     irAPaso(2);
   } else if (nc.pasoActual === 2) {
-    await guardarFormulario();
+    // KA-F-10: antes se tragaba el error y avanzaba igual mostrando
+    // "expediente creado", así que el usuario creía que había guardado el
+    // cuestionario. Si falla, se queda en el paso 2.
+    const ok = await guardarFormulario();
+    if (!ok) return;
     irAPaso(3);
   }
 }
@@ -158,17 +167,18 @@ function irAPaso(paso) {
 }
 
 // ─── Paso 1: Crear expediente ─────────────────────────────────────────────────
-async function crearExpediente() {
+// Valida el paso 1 y arma el cuerpo. Devuelve null si algo falta (ya avisó).
+function validarYArmarDatos() {
   const canal   = document.querySelector('[data-canal].active')?.dataset.canal;
   const urgencia = document.querySelector('[data-urgencia].active')?.dataset.urgencia || 'medio';
 
   if (!canal) {
     toast.warning('Selecciona el canal de apertura');
-    return false;
+    return null;
   }
   if (!nc.tipoId) {
     toast.warning('Selecciona el tipo de asistencia');
-    return false;
+    return null;
   }
 
   const nombre = document.getElementById('conductor_nombre')?.value.trim();
@@ -177,7 +187,7 @@ async function crearExpediente() {
 
   if (!nombre || !tel || !ubic) {
     toast.warning('Completa los campos obligatorios: conductor, teléfono y ubicación');
-    return false;
+    return null;
   }
 
   // Validar subtipo si la sección está visible
@@ -185,10 +195,10 @@ async function crearExpediente() {
   const subtiposVisibles = subtiposSection?.style.display !== 'none';
   if (subtiposVisibles && !nc.subtipoId) {
     toast.warning('Selecciona la clasificación del caso');
-    return false;
+    return null;
   }
 
-  const data = {
+  return {
     canal_origen:     canal,
     tipo_id:          nc.tipoId,
     subtipo_id:       nc.subtipoId || undefined,
@@ -203,6 +213,11 @@ async function crearExpediente() {
     convenio_id:      document.getElementById('convenio_id')?.value            || undefined,
     descripcion:      document.getElementById('descripcion')?.value.trim()     || undefined,
   };
+}
+
+async function crearExpediente() {
+  const data = validarYArmarDatos();
+  if (!data) return false;
 
   try {
     document.getElementById('btn-siguiente').disabled = true;
@@ -211,6 +226,7 @@ async function crearExpediente() {
     const expediente = await asistenciasService.crear(data);
     nc.expedienteId  = expediente.id;
     nc.folio         = expediente.folio;
+    nc.tipoIdCreado  = data.tipo_id;   // PATCH no puede cambiarlo (ver abajo)
 
     // Guardar datos del vehículo si se capturaron (PATCH separado)
     const vehiculo = leerDatosVehiculo();
@@ -234,6 +250,57 @@ async function crearExpediente() {
     return false;
   } finally {
     const btn = document.getElementById('btn-siguiente');
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar y continuar →'; }
+  }
+}
+
+// Segunda pasada por el paso 1 (el usuario retrocedió y volvió a avanzar): el
+// expediente ya existe, así que se actualiza en vez de crear otro.
+//
+// `PATCH /asistencias/:id` no acepta `canal_origen` ni `tipo_id` — el tipo
+// determina el cuestionario y el folio ya emitido, y no se puede reescribir.
+// Si el usuario lo cambió, se le dice en claro en vez de dejar que la pantalla
+// y el expediente digan cosas distintas.
+async function actualizarExpediente() {
+  const data = validarYArmarDatos();
+  if (!data) return false;
+
+  if (nc.tipoIdCreado && data.tipo_id !== nc.tipoIdCreado) {
+    toast.warning(
+      `El tipo de asistencia no se puede cambiar en el expediente ${nc.folio}, que ya está creado. ` +
+      'Cancela y abre uno nuevo si necesitas otro tipo.',
+    );
+    return false;
+  }
+
+  // Solo lo que el backend admite actualizar.
+  const editables = {
+    subtipo_id:       data.subtipo_id,
+    conductor_nombre: data.conductor_nombre,
+    conductor_tel:    data.conductor_tel,
+    ubicacion:        data.ubicacion,
+    nivel_urgencia:   data.nivel_urgencia,
+    siniestro_ref:    data.siniestro_ref,
+    ajustador_nombre: data.ajustador_nombre,
+    ajustador_tel:    data.ajustador_tel,
+    empresa_id:       data.empresa_id,
+    convenio_id:      data.convenio_id,
+    descripcion:      data.descripcion,
+  };
+  const vehiculo = leerDatosVehiculo();
+  if (vehiculo) editables.datos_vehiculo = vehiculo;
+
+  const btn = document.getElementById('btn-siguiente');
+  try {
+    if (btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
+    await asistenciasService.actualizar(nc.expedienteId, editables);
+    toast.success(`Expediente ${nc.folio} actualizado`);
+    return true;
+  } catch (err) {
+    console.error('No se pudo actualizar el expediente', err);
+    toast.error(err.message || 'No se pudo actualizar el expediente');
+    return false;
+  } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Guardar y continuar →'; }
   }
 }
@@ -272,16 +339,20 @@ async function cargarFormularioDinamico() {
 }
 
 async function guardarFormulario() {
-  if (!nc.formularioId || !nc.expedienteId) return;
+  // Sin cuestionario que guardar el paso no aporta nada: se deja avanzar.
+  if (!nc.formularioId || !nc.expedienteId) return true;
 
-  const container  = document.getElementById('formulario-dinamico');
-  if (!container) return;
+  const container = document.getElementById('formulario-dinamico');
+  if (!container) return true;
   const respuestas = formRenderer.recolectar(container);
 
   try {
     await asistenciasService.guardarRespuestas(nc.expedienteId, nc.formularioId, respuestas);
+    return true;
   } catch (err) {
-    console.warn('No se guardaron respuestas:', err.message);
+    console.error('No se guardaron las respuestas del cuestionario', err);
+    toast.error(err.message || 'No se pudo guardar el cuestionario. Revisa los datos e inténtalo de nuevo.');
+    return false;
   }
 }
 

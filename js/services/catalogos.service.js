@@ -117,6 +117,11 @@ const catalogosService = {
     return api.get('/catalogos/promotorias');
   },
 
+  /** Catálogo de roles del sistema (admin). Fuente única para la UI de roles. */
+  async getRoles() {
+    return api.get('/catalogos/roles');
+  },
+
   /** Usos de un ramo (B2-06). Hoy solo AUT tiene; otros ramos devuelven []. */
   async getUsos(ramo_id) {
     return api.get(`/catalogos/usos?ramo_id=${encodeURIComponent(ramo_id)}`);

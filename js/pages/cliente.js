@@ -138,9 +138,12 @@ function renderDocumentos(docs) {
 
 async function descargarDoc(docId) {
   try {
-    const { url } = await clientesService.getUrlDocumento(clienteId, docId);
-    window.open(url, '_blank');
-  } catch { toast.error('No se pudo obtener el documento'); }
+    const { url, nombre } = await clientesService.getUrlDocumento(clienteId, docId);
+    await descargas.abrirDocumento(url, nombre);
+  } catch (err) {
+    console.error('No se pudo obtener el documento', err);
+    toast.error(err.message || 'No se pudo obtener el documento');
+  }
 }
 
 async function subirDocumento(file) {
