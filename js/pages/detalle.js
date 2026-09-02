@@ -204,6 +204,18 @@ function renderDocumentos(docs) {
 
 // ─── Inicializar eventos ──────────────────────────────────────────────────────
 function inicializarEventos() {
+  // KA-F-08: estas acciones se mostraban a todo el que abriera la ficha,
+  // incluidos abogado y cabina, que solo pueden LEER el expediente (y el
+  // abogado, comentar). Cada una se oculta si el backend la va a rechazar.
+  //   cambiar estatus            → admin, supervisor, operador
+  //   asignar proveedor / cerrar → admin, supervisor
+  //   comentar                   → admin, supervisor, operador, abogado
+  permisos.ocultarSiNoPuede('asistenciasEstatus', 'btn-cambiar-estatus');
+  permisos.ocultarSiNoPuede('asistenciasAsignar',
+    'btn-asignar-abogado', 'btn-asignar-abogado-2', 'btn-reasignar');
+  permisos.ocultarSiNoPuede('asistenciasCerrar', 'btn-cerrar-expediente');
+  permisos.ocultarSiNoPuede('asistenciasComentar', 'btn-agregar-comentario', 'nuevo-comentario');
+
   // Cambiar estatus
   document.getElementById('btn-cambiar-estatus')?.addEventListener('click', () => {
     modal.open('modal-estatus');

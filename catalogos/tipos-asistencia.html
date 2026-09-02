@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Catálogo de servicios — Kogu Asistencias</title>
-  <link rel="stylesheet" href="/styles/styles.css?v=1.3">
+  <link rel="stylesheet" href="/styles/styles.css?v=1.4">
   <style>
     /* ── Grid de tipos ── */
     .tipos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
@@ -119,7 +119,7 @@
     <div class="drawer-panel active" id="panel-subtipos">
       <div class="section-head">
         <h4>Subtipos</h4>
-        <button class="btn btn-primary btn-sm" onclick="abrirModalSubtipo()">➕ Nuevo subtipo</button>
+        <button class="btn btn-primary btn-sm" id="btn-nuevo-subtipo" onclick="abrirModalSubtipo()">➕ Nuevo subtipo</button>
       </div>
       <div id="lista-subtipos" class="subtipo-list">
         <div style="text-align:center;padding:24px;color:#94a3b8">Cargando…</div>
@@ -282,15 +282,16 @@
   </div>
 </div>
 
-<script src="/js/config.js?v=1.3"></script>
-<script src="/js/services/api.js?v=1.3"></script>
-<script src="/js/services/auth.service.js?v=1.3"></script>
-<script src="/js/services/catalogos.service.js?v=1.3"></script>
-<script src="/js/utils/format.js?v=1.3"></script>
-<script src="/js/utils/toast.js?v=1.3"></script>
-<script src="/js/utils/modal.js?v=1.3"></script>
-<script src="/js/components/sidebar.js?v=1.3"></script>
-<script src="/js/utils/auth.guard.js?v=1.3"></script>
+<script src="/js/config.js?v=1.4"></script>
+<script src="/js/services/api.js?v=1.4"></script>
+<script src="/js/services/auth.service.js?v=1.4"></script>
+<script src="/js/services/catalogos.service.js?v=1.4"></script>
+<script src="/js/utils/format.js?v=1.4"></script>
+<script src="/js/utils/toast.js?v=1.4"></script>
+<script src="/js/utils/modal.js?v=1.4"></script>
+<script src="/js/utils/permisos.js?v=1.4"></script>
+<script src="/js/components/sidebar.js?v=1.4"></script>
+<script src="/js/utils/auth.guard.js?v=1.4"></script>
 <script>
 'use strict';
 
@@ -305,6 +306,13 @@ const st = {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Bf-10: crear y editar tipos/subtipos es admin-only. El supervisor llega a
+  // la pantalla (lee /subtipos/admin y /formularios/admin) pero sus botones de
+  // escritura fallaban siempre con 403.
+  if (!permisos.puedeAccion('tiposEscribir')) {
+    ['btn-nuevo-tipo', 'btn-nuevo-subtipo', 'btn-guardar-tipo', 'btn-guardar-subtipo']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+  }
   await cargarTipos();
   document.getElementById('chk-mostrar-inactivos')?.addEventListener('change', () => renderTipos());
   document.getElementById('btn-nuevo-tipo')?.addEventListener('click', abrirModalTipo);

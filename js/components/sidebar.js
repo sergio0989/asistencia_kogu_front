@@ -3,37 +3,42 @@
  * Inyecta el sidebar en #sidebar-placeholder y marca el enlace activo
  * según window.location.pathname.
  *
- * Visibilidad por rol (Bf-04): los roles operativos (admin/supervisor/operador/
- * cabina) ven todo; los roles comerciales puros (agente/promotor, sin rol
- * operativo) ven solo Dashboard + la sección Promotoría. El scoping de datos lo
- * hace el API; aquí solo se ocultan enlaces.
+ * Visibilidad por rol: cada enlace lleva EXACTAMENTE los roles que el backend
+ * admite en el GET de esa pantalla (Bf-10, matriz §1). El scoping de datos lo
+ * sigue haciendo el API; aquí solo se ocultan enlaces que darían 403.
+ *
+ * Las listas salen de `permisos.MATRIZ` para no volver a tener dos copias que
+ * se desincronizan — que es justo lo que pasaba: `OPERATIVOS` dejaba fuera al
+ * abogado (se quedaba sin ninguna pantalla) y a la vez ofrecía Usuarios al
+ * operador y a cabina, que reciben 403.
  *
  * Nota: auth.guard.js puebla #user-name, #user-role y #btn-logout.
  */
 
 (function () {
-  const OPERATIVOS = ['admin', 'supervisor', 'operador', 'cabina'];
-  // Roles con acceso comercial (el API hace el scoping). Excluye cabina y
-  // abogado: el backend les devuelve 403, así que tampoco ven los enlaces.
-  const COMERCIAL = ['admin', 'supervisor', 'operador', 'agente', 'promotor'];
+  const M = window.permisos?.MATRIZ || {};
 
   // [href, etiqueta, grupo, rolesPermitidos?] — sin rolesPermitidos = visible a todos
   const NAV_LINKS = [
-    ['/dashboard.html',                    '📊 Dashboard',          'operacion'],
-    ['/bandeja.html',                      '📋 Bandeja de casos',   'operacion',  OPERATIVOS],
-    ['/nuevo-caso.html',                   '➕ Nuevo caso',         'operacion',  OPERATIVOS],
+    // El Dashboard operativo consume /asistencias/kpis y /proveedores.
+    ['/dashboard.html',                    '📊 Dashboard',          'operacion',  M.asistenciasKpis],
+    // El abogado SÍ lista expedientes (ve los de su proveedor)…
+    ['/bandeja.html',                      '📋 Bandeja de casos',   'operacion',  M.asistenciasVer],
+    // …pero no puede crearlos.
+    ['/nuevo-caso.html',                   '➕ Nuevo caso',         'operacion',  M.asistenciasCrear],
 
-    ['/comercial/dashboard.html',          '📈 Panel comercial',    'promotoria', COMERCIAL],
-    ['/comercial/pipeline.html',           '🗂️ Pipeline',          'promotoria', COMERCIAL],
-    ['/comercial/clientes.html',           '🧑‍💼 Clientes',         'promotoria', COMERCIAL],
-    ['/comercial/polizas.html',            '📑 Pólizas',            'promotoria', COMERCIAL],
-    ['/comercial/renovaciones.html',       '🔁 Renovaciones',       'promotoria', COMERCIAL],
-    ['/comercial/agentes.html',            '🎫 Agentes',            'promotoria', ['admin', 'supervisor', 'promotor']],
+    ['/comercial/dashboard.html',          '📈 Panel comercial',    'promotoria', M.comercialVer],
+    ['/comercial/pipeline.html',           '🗂️ Pipeline',          'promotoria', M.comercialVer],
+    ['/comercial/clientes.html',           '🧑‍💼 Clientes',         'promotoria', M.comercialVer],
+    ['/comercial/polizas.html',            '📑 Pólizas',            'promotoria', M.comercialVer],
+    ['/comercial/renovaciones.html',       '🔁 Renovaciones',       'promotoria', M.comercialVer],
+    // B2-07: el agente lista su propio equipo, así que también ve la pantalla.
+    ['/comercial/agentes.html',            '🎫 Agentes',            'promotoria', M.agentesVer],
 
-    ['/usuarios/lista.html',               '👥 Usuarios',           'gestion',    OPERATIVOS],
-    ['/catalogos/proveedores.html',        '⚖️ Proveedores',       'gestion',    OPERATIVOS],
-    ['/catalogos/empresas.html',           '🏢 Empresas',           'gestion',    OPERATIVOS],
-    ['/catalogos/tipos-asistencia.html',   '🗂️ Tipos de servicio', 'gestion',    OPERATIVOS],
+    ['/usuarios/lista.html',               '👥 Usuarios',           'gestion',    M.usuariosVer],
+    ['/catalogos/proveedores.html',        '⚖️ Proveedores',       'gestion',    M.proveedoresVer],
+    ['/catalogos/empresas.html',           '🏢 Empresas',           'gestion',    M.catalogosVer],
+    ['/catalogos/tipos-asistencia.html',   '🗂️ Tipos de servicio', 'gestion',    M.tiposVer],
   ];
 
   function getRoles() {

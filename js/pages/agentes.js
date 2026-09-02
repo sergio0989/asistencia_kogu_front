@@ -7,6 +7,11 @@
 
 const state = { page: 1, limit: 15, filtros: {}, editandoId: null, docsAgenteId: null, filas: [] };
 
+// Bf-10: POST y PATCH de agentes son admin/supervisor. El promotor y el agente
+// llegan a esta pantalla (GET /agentes los admite, acotados) pero no escriben:
+// ofrecerles el alta y el lápiz era ofrecerles un 403.
+const PUEDE_ESCRIBIR = permisos.puedeAccion('agentesEscribir');
+
 const MAPA = {
   nombre: 'a-nombre', rfc: 'a-rfc', telefono: 'a-telefono', email: 'a-email',
   promotoria_id: 'a-promotoria', cedula_tipo: 'a-cedula-tipo',
@@ -33,7 +38,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     aplicarJerarquia(e.target.value); state.page = 1; cargarAgentes();
   });
   document.getElementById('btn-limpiar')?.addEventListener('click', limpiarFiltros);
-  document.getElementById('btn-nuevo-agente')?.addEventListener('click', abrirModalCrear);
+  const btnNuevo = document.getElementById('btn-nuevo-agente');
+  if (PUEDE_ESCRIBIR) btnNuevo?.addEventListener('click', abrirModalCrear);
+  else if (btnNuevo) btnNuevo.style.display = 'none';
   document.getElementById('btn-guardar-agente')?.addEventListener('click', guardarAgente);
   document.getElementById('btn-subir-doc-agente')?.addEventListener('click', subirDocumento);
 });
@@ -155,7 +162,7 @@ function renderFilas(rows) {
         <td style="text-align:center">${fmt.esc(a.clientes_count ?? 0)}</td>
         <td>${a.activo ? '<span><span class="status-dot dot-active"></span>Activo</span>' : '<span style="color:#94a3b8"><span class="status-dot dot-inactive"></span>Inactivo</span>'}</td>
         <td style="text-align:center">
-          <button class="btn btn-ghost btn-sm" onclick="abrirModalEditar('${a.id}')" title="Editar">✏️</button>
+          ${PUEDE_ESCRIBIR ? `<button class="btn btn-ghost btn-sm" onclick="abrirModalEditar('${a.id}')" title="Editar">✏️</button>` : ''}
           <button class="btn btn-ghost btn-sm" onclick="abrirDocs('${a.id}','${fmt.esc(String(a.nombre||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"))}')" title="Documentos">📎</button>
         </td>
       </tr>`;
