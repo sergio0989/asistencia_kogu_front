@@ -2,8 +2,16 @@
 /**
  * bandeja.js — Bandeja operativa con filtros, tabs y paginación.
  * Depende de: api.js, asistencias.service.js, catalogos.service.js,
- *             fmt, toast, table
+ *             fmt, toast, table, permisos
  */
+
+// Bf-10: asignar proveedor es admin/supervisor (POST /asistencias/:id/proveedor).
+// El botón "Asignar" se ofrecía a cualquier rol que abriera la bandeja —desde
+// Bf-10 también abogado y cabina—, que al pulsarlo llegaban al detalle donde esa
+// acción ya no existe. La página cargaba permisos.js pero no lo usaba.
+const PUEDE_ASIGNAR = permisos.puedeAccion('asistenciasAsignar');
+// Los KPIs del topbar salen de /asistencias/kpis (admin/supervisor/operador).
+const PUEDE_KPIS    = permisos.puedeAccion('asistenciasKpis');
 
 const state = {
   page:     1,
@@ -91,12 +99,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // ─── KPIs del topbar ──────────────────────────────────────────────────────────
 async function cargarKpis() {
+  // Sin permiso el endpoint responde 403 y el catch lo tragaba: las tres
+  // tarjetas se quedaban en "—" para siempre. Desde Bf-10 el abogado y la
+  // cabina aterrizan aquí, así que en vez de enseñarles una fila vacía y sin
+  // explicación, se oculta.
+  if (!PUEDE_KPIS) {
+    document.getElementById('kpi-row-bandeja')?.style.setProperty('display', 'none');
+    return;
+  }
   try {
     const kpis = await asistenciasService.getKpis();
     setEl('kpi-activos',      kpis.activos           ?? '—');
     setEl('kpi-sin-asignar',  kpis.sin_proveedor      ?? '—');
     setEl('kpi-criticos',     kpis.criticos_abiertos  ?? '—');
-  } catch { /* silencioso */ }
+  } catch (err) {
+    console.error('No se pudieron cargar los KPIs de la bandeja', err);
+  }
 }
 
 // ─── Cargar datos ─────────────────────────────────────────────────────────────
@@ -192,7 +210,7 @@ function renderFilas(rows) {
               onclick="verExpediente('${r.id}')" title="Ver detalle">
               Ver
             </button>
-            ${sinAb ? `<button class="btn btn-primary btn-sm"
+            ${sinAb && PUEDE_ASIGNAR ? `<button class="btn btn-primary btn-sm"
               onclick="verExpediente('${r.id}')" title="Asignar abogado">
               Asignar
             </button>` : ''}
