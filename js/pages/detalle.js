@@ -28,6 +28,9 @@ async function cargarExpediente() {
     renderBitacora(expediente.bitacora || []);
     renderHistorial(expediente.historial_estatus || []);
     renderDocumentos(expediente.documentos || []);
+    // Los destinos posibles cambian con el estatus, así que se rehacen en cada
+    // carga (incluida la que sigue a un cambio).
+    renderAcciones(expediente.transiciones_disponibles);
     await renderCuestionario(expediente);
   } catch (err) {
     toast.error('Error al cargar el expediente');
@@ -216,8 +219,10 @@ function inicializarEventos() {
   permisos.ocultarSiNoPuede('asistenciasCerrar', 'btn-cerrar-expediente');
   permisos.ocultarSiNoPuede('asistenciasComentar', 'btn-agregar-comentario', 'nuevo-comentario');
 
-  // Cambiar estatus
+  // Cambiar estatus: el modal siempre abre en el paso 1, aunque la vez anterior
+  // se hubiera quedado en el del motivo.
   document.getElementById('btn-cambiar-estatus')?.addEventListener('click', () => {
+    volverADestino();
     modal.open('modal-estatus');
   });
 
@@ -234,9 +239,8 @@ function inicializarEventos() {
   });
 
   // Botones de estatus en el modal
-  document.querySelectorAll('[data-nuevo-estatus]').forEach(btn => {
-    btn.addEventListener('click', () => cambiarEstatus(btn.dataset.nuevoEstatus));
-  });
+  document.getElementById('btn-volver-destino')?.addEventListener('click', volverADestino);
+  document.getElementById('btn-confirmar-estatus')?.addEventListener('click', confirmarEstatus);
 
   // Confirmar cierre
   document.getElementById('btn-confirmar-cierre')?.addEventListener('click', cerrarExpediente);
@@ -301,15 +305,133 @@ function inicializarEventos() {
 }
 
 // ─── Acciones ─────────────────────────────────────────────────────────────────
-async function cambiarEstatus(nuevoEstatus) {
-  const comentario = document.getElementById('comentario-estatus')?.value || '';
+// ─── Acciones de estatus (desde la máquina del API) ──────────────────────────
+//
+// Mismo patrón que comercial/oportunidad.js: un botón por cada transición que
+// devuelve el API, con `to_nombre` de etiqueta, y `requiere_motivo` decidiendo
+// si el motivo es obligatorio. Nada hardcodeado.
+//
+// Antes había seis botones fijos en el HTML frente a los 16 estatus del
+// catálogo: uno apuntaba a `pendiente_pago`, que no existe en catalogo_estatus,
+// y los seis se mostraban siempre, así que desde `cerrado` se ofrecía "En
+// proceso" y el usuario recibía el error crudo del API como toast.
+const tr = { destino: null, nombre: '', requiereMotivo: false };
+
+function renderAcciones(transiciones) {
+  const cont = document.getElementById('acciones-estatus');
+  if (!cont) return;
+
+  // Bf-10: cambiar estatus es admin/supervisor/operador.
+  if (!permisos.puedeAccion('asistenciasEstatus')) {
+    cont.innerHTML = '<div style="color:#94a3b8;font-size:13px;padding:8px 0">Tu rol no puede cambiar el estatus.</div>';
+    return;
+  }
+
+  const lista = transiciones || [];
+  if (!lista.length) {
+    // Desde `archivado` o `anulado` no hay salida: es el estado correcto, no un
+    // error ni un hueco sin explicar.
+    cont.innerHTML = '<div style="color:#94a3b8;font-size:13px;padding:8px 0">No hay cambios de estatus disponibles.</div>';
+    return;
+  }
+
+  cont.innerHTML = lista.map((t) => {
+    const destructiva = t.to_estatus_macro === 'anulado' || t.to_estatus_macro === 'cerrado';
+    return `<button class="estatus-btn" ${destructiva ? 'style="color:#991b1b"' : ''}
+      data-to-clave="${fmt.esc(t.to_clave)}"
+      data-to-nombre="${fmt.esc(t.to_nombre || t.to_clave)}"
+      data-requiere-motivo="${t.requiere_motivo ? '1' : '0'}">${fmt.esc(t.to_nombre || t.to_clave)}</button>`;
+  }).join('');
+
+  cont.querySelectorAll('[data-to-clave]').forEach((btn) => {
+    btn.addEventListener('click', () => iniciarTransicion(
+      btn.dataset.toClave, btn.dataset.requiereMotivo === '1', btn.dataset.toNombre,
+    ));
+  });
+}
+
+// Paso 2 del modal: pide el motivo (obligatorio) o el comentario (opcional).
+function iniciarTransicion(toClave, requiereMotivo, toNombre) {
+  tr.destino = toClave;
+  tr.nombre  = toNombre || toClave;
+  tr.requiereMotivo = requiereMotivo;
+
+  document.getElementById('destino-nombre').textContent = tr.nombre;
+  document.getElementById('label-comentario').innerHTML = requiereMotivo
+    ? 'Motivo <span style="color:#dc2626">*</span>'
+    : 'Comentario (opcional)';
+  const ta = document.getElementById('comentario-estatus');
+  ta.value = '';
+  ta.placeholder = requiereMotivo
+    ? 'Explica el motivo del cambio (obligatorio)'
+    : 'Puedes añadir una nota…';
+  ocultarErrorComentario();
+
+  document.getElementById('paso-destino').style.display = 'none';
+  document.getElementById('paso-motivo').style.display  = '';
+  document.getElementById('btn-volver-destino').style.display  = '';
+  document.getElementById('btn-confirmar-estatus').style.display = '';
+  ta.focus();
+}
+
+function volverADestino() {
+  tr.destino = null;
+  ocultarErrorComentario();
+  document.getElementById('paso-destino').style.display = '';
+  document.getElementById('paso-motivo').style.display  = 'none';
+  document.getElementById('btn-volver-destino').style.display  = 'none';
+  document.getElementById('btn-confirmar-estatus').style.display = 'none';
+}
+
+function mostrarErrorComentario(texto) {
+  const el = document.getElementById('error-comentario');
+  if (!el) return;
+  el.textContent = texto;
+  el.style.display = '';
+}
+function ocultarErrorComentario() {
+  const el = document.getElementById('error-comentario');
+  if (el) el.style.display = 'none';
+}
+
+async function confirmarEstatus() {
+  if (!tr.destino) return;
+  const comentario = document.getElementById('comentario-estatus').value.trim();
+
+  // El motivo se exige aquí, no se espera al 422 del backend.
+  if (tr.requiereMotivo && !comentario) {
+    mostrarErrorComentario('Este cambio de estatus requiere un motivo.');
+    document.getElementById('comentario-estatus').focus();
+    return;
+  }
+  ocultarErrorComentario();
+
+  const btn = document.getElementById('btn-confirmar-estatus');
+  btn.disabled = true; btn.textContent = 'Guardando…';
   try {
-    await asistenciasService.cambiarEstatus(expedienteId, nuevoEstatus, comentario);
-    toast.success(`Estatus actualizado a "${nuevoEstatus}"`);
+    await asistenciasService.cambiarEstatus(expedienteId, tr.destino, comentario);
+    toast.success(`Expediente movido a "${tr.nombre}"`);
     modal.close('modal-estatus');
+    volverADestino();
+    // La lista de transiciones depende del estatus: hay que rehacerla.
     await cargarExpediente();
   } catch (err) {
-    toast.error(err.message || 'Error al cambiar estatus');
+    console.error('No se pudo cambiar el estatus', err);
+    // B2-10 distingue los tres casos; cada uno dice algo distinto y en lenguaje
+    // de negocio, no el mensaje crudo del API.
+    if (err.status === 409) {
+      toast.warning(`El expediente ya está en "${tr.nombre}".`);
+      modal.close('modal-estatus');
+      await cargarExpediente();
+    } else if (err.status === 422) {
+      mostrarErrorComentario(err.details?.[0]?.message || 'Falta el motivo del cambio.');
+    } else if (err.status === 403) {
+      toast.error('Tu rol no puede realizar este cambio de estatus.');
+    } else {
+      toast.error(err.message || 'No se pudo cambiar el estatus');
+    }
+  } finally {
+    btn.disabled = false; btn.textContent = 'Confirmar';
   }
 }
 
