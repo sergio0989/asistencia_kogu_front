@@ -116,17 +116,25 @@ async function cargarAseguradoras() {
 // ─── Agente / sub-agente (Bf-07 §7.1) ────────────────────────────────────────
 //
 // El backend decide el reparto según quién emite: un sub-agente cuelga la
-// póliza de su padre y queda él en `subagente_id`. Por eso el formulario NO le
-// pide esos campos; solo los pide a quien de verdad puede elegirlos.
+// póliza de su padre y queda él en `subagente_id`. Por eso el formulario solo
+// pide los campos que ese perfil puede elegir de verdad:
 //
-// Límite real de la API: `GET /agentes` solo admite admin, supervisor y
-// promotor. Un usuario con rol `agente` recibe 403, así que no puede alimentar
-// ningún picker de agentes — ni siquiera para elegir entre sus propios
-// sub-agentes. Para esos perfiles se muestra una línea informativa en vez de un
-// picker que fallaría. (Ver nota al cierre de Bf-07.)
+//   elevado (admin/sup/operador/promotor) → los dos pickers
+//   agente raíz  → solo sub-agente, acotado a los suyos (se asigna a sí mismo)
+//   sub-agente   → ninguno, con una línea informativa
 function montarPickersAgente() {
-  if (perfil !== 'elevado') {
+  if (perfil === 'subagente') {
     mostrarAvisoAsignacion();
+    return;
+  }
+
+  // El agente raíz no elige titular —es él— pero sí a cuál de sus sub-agentes
+  // le acredita la venta. Su picker se acota a su propio agente_id.
+  if (perfil === 'agente_raiz') {
+    mostrarAvisoAsignacion();
+    montarPickerSubagente(() => authService.getUser()?.agente_id || undefined);
+    habilitarSubagente(true);   // el titular ya está fijado: no hay que esperar
+    montarFiltroSubagente();
     return;
   }
 
@@ -147,23 +155,15 @@ function montarPickersAgente() {
     limpiarSubagente(); habilitarSubagente(false);
   });
 
-  pickerSubagente = picker.bind({
-    inputId: 'p-subagente-label', hiddenId: 'p-subagente',
-    botonId: 'p-subagente-btn',   limpiarId: 'p-subagente-clear',
-    titulo:      'Seleccionar sub-agente',
-    placeholder: 'Nombre, RFC o correo…',
-    vacio:       'Escribe para buscar sub-agentes.',
-    buscar:      (q, page) => agentesService.listar({
-      buscar: q, page, limit: 20, agente_padre_id: document.getElementById('p-agente').value || undefined,
-    }),
-    item:        a => ({ id: a.id, titulo: a.nombre, sub: a.email || a.rfc || '—' }),
-    onSelect:    () => mostrarComisionSub(true),
-  });
-  document.getElementById('grupo-p-subagente').style.display = '';
-  document.getElementById('p-subagente-clear')?.addEventListener('click', () => mostrarComisionSub(false));
+  montarPickerSubagente(() => document.getElementById('p-agente').value || undefined);
   habilitarSubagente(false);   // hasta que haya agente elegido
 
-  // Filtro del listado por sub-agente.
+  montarFiltroSubagente();
+}
+
+// Filtro del listado por sub-agente. El backend acota la búsqueda al alcance de
+// quien pregunta, así que al agente raíz le devuelve su propio equipo.
+function montarFiltroSubagente() {
   pickerFiltroSub = picker.bind({
     inputId: 'filtro-subagente-label', hiddenId: 'filtro-subagente',
     botonId: 'filtro-subagente-btn',   limpiarId: 'filtro-subagente-clear',
@@ -176,14 +176,39 @@ function montarPickersAgente() {
   document.getElementById('grupo-filtro-subagente').style.display = '';
 }
 
+// `titularId` es una función: para el agente raíz es siempre él, y para un rol
+// elevado depende de lo que haya elegido en el picker de agente.
+function montarPickerSubagente(titularId) {
+  pickerSubagente = picker.bind({
+    inputId: 'p-subagente-label', hiddenId: 'p-subagente',
+    botonId: 'p-subagente-btn',   limpiarId: 'p-subagente-clear',
+    titulo:      'Seleccionar sub-agente',
+    placeholder: 'Nombre, RFC o correo…',
+    vacio:       'Escribe para buscar sub-agentes.',
+    buscar:      (q, page) => agentesService.listar({
+      buscar: q, page, limit: 20, agente_padre_id: titularId(),
+    }),
+    item:        a => ({ id: a.id, titulo: a.nombre, sub: a.email || a.rfc || '—' }),
+    onSelect:    () => mostrarComisionSub(true),
+  });
+  document.getElementById('grupo-p-subagente').style.display = '';
+  document.getElementById('p-subagente-clear')?.addEventListener('click', () => mostrarComisionSub(false));
+}
+
 /** Para agente raíz y sub-agente: se explica el reparto que hará el backend. */
 function mostrarAvisoAsignacion() {
   const aviso = document.getElementById('p-aviso-subagente');
   const txt   = document.getElementById('p-aviso-subagente-txt');
   if (!aviso || !txt) return;
-  txt.textContent = perfil === 'subagente'
-    ? 'Se registrará a tu nombre como sub-agente, con tu agente titular en la póliza.'
-    : 'La póliza se registrará a tu nombre.';
+
+  if (perfil === 'subagente') {
+    const titular = authService.getUser()?.padre_nombre;
+    txt.textContent = titular
+      ? `Se registrará a tu nombre, con ${titular} como agente titular.`
+      : 'Se registrará a tu nombre como sub-agente, con tu agente titular en la póliza.';
+  } else {
+    txt.textContent = 'La póliza se registrará a tu nombre. Puedes acreditar la venta a uno de tus sub-agentes.';
+  }
   aviso.style.display = '';
 }
 
@@ -375,10 +400,10 @@ async function guardarPoliza() {
     comision_subagente_pct: num('p-comision-sub'),
   };
 
-  if (perfil === 'elevado') {
-    data.agente_id    = val('p-agente');
-    data.subagente_id = val('p-subagente');
-  }
+  // El agente raíz solo acredita al sub-agente: el titular es él y lo resuelve
+  // el backend. Un sub-agente no manda ninguno de los dos.
+  if (perfil === 'elevado')     data.agente_id = val('p-agente');
+  if (perfil !== 'subagente')   data.subagente_id = val('p-subagente');
 
   const btn = document.getElementById('btn-guardar-poliza');
   btn.disabled = true; btn.textContent = 'Creando…';
@@ -424,7 +449,9 @@ function limpiarForm() {
   pickerCliente?.limpiar();
   pickerAgente?.set('', '');
   limpiarSubagente();
-  habilitarSubagente(false);
+  // El agente raíz siempre tiene titular (él), así que su picker no se
+  // deshabilita al limpiar el formulario; el rol elevado sí, hasta elegir agente.
+  habilitarSubagente(perfil === 'agente_raiz');
   document.getElementById('grupo-p-uso').style.display = 'none';
   // Fecha de venta: hoy por defecto (§2).
   document.getElementById('p-fecha-venta').value = new Date().toISOString().slice(0, 10);

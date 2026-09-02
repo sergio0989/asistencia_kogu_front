@@ -88,19 +88,23 @@ let pkSubagente  = null;
 let perfil = 'elevado';
 
 // §7.1: el reparto agente/sub-agente lo decide el backend según quién crea el
-// trato. Solo se piden los dos pickers a quien puede elegirlos — y `GET
-// /agentes` solo admite admin/supervisor/promotor, así que un rol `agente` ni
-// siquiera podría alimentarlos.
+// trato, así que solo se piden los campos que cada perfil puede elegir:
+//
+//   elevado (admin/sup/operador/promotor) → los dos pickers
+//   agente raíz  → solo sub-agente, acotado a los suyos (se asigna a sí mismo)
+//   sub-agente   → ninguno, con una línea informativa
 function montarPickerAgente() {
-  if (!PUEDE_AGENTES) {
-    const aviso = document.getElementById('o-aviso-asignacion');
-    const txt   = document.getElementById('o-aviso-asignacion-txt');
-    if (aviso && txt) {
-      txt.textContent = perfil === 'subagente'
-        ? 'Se registrará a tu nombre como sub-agente, con tu agente titular en la oportunidad.'
-        : 'La oportunidad se registrará a tu nombre.';
-      aviso.style.display = '';
-    }
+  if (perfil === 'subagente') {
+    mostrarAvisoAsignacion();
+    return;
+  }
+
+  // El agente raíz es el titular; lo que sí elige es a cuál de sus sub-agentes
+  // le acredita el trato.
+  if (perfil === 'agente_raiz') {
+    mostrarAvisoAsignacion();
+    montarPickerSubagente(() => authService.getUser()?.agente_id || undefined);
+    habilitarSubagente(true);   // el titular ya está fijado
     return;
   }
 
@@ -119,6 +123,13 @@ function montarPickerAgente() {
     pkSubagente?.set('', ''); habilitarSubagente(false);
   });
 
+  montarPickerSubagente(() => document.getElementById('o-agente').value || undefined);
+  habilitarSubagente(false);
+}
+
+// `titularId` es una función: para el agente raíz es siempre él, y para un rol
+// elevado depende de lo que haya elegido en el picker de agente.
+function montarPickerSubagente(titularId) {
   pkSubagente = picker.bind({
     inputId:     'o-subagente-label', hiddenId: 'o-subagente',
     botonId:     'o-subagente-btn',   limpiarId: 'o-subagente-clear',
@@ -126,12 +137,28 @@ function montarPickerAgente() {
     placeholder: 'Nombre, RFC o correo…',
     vacio:       'Escribe para buscar sub-agentes.',
     buscar:      (q, page) => agentesService.listar({
-      buscar: q, page, limit: 20, agente_padre_id: document.getElementById('o-agente').value || undefined,
+      buscar: q, page, limit: 20, agente_padre_id: titularId(),
     }),
     item:        a => ({ id: a.id, titulo: a.nombre, sub: a.email || a.rfc || '—' }),
   });
   document.getElementById('grupo-subagente').style.display = '';
-  habilitarSubagente(false);
+}
+
+/** Para agente raíz y sub-agente: se explica el reparto que hará el backend. */
+function mostrarAvisoAsignacion() {
+  const aviso = document.getElementById('o-aviso-asignacion');
+  const txt   = document.getElementById('o-aviso-asignacion-txt');
+  if (!aviso || !txt) return;
+
+  if (perfil === 'subagente') {
+    const titular = authService.getUser()?.padre_nombre;
+    txt.textContent = titular
+      ? `Se registrará a tu nombre, con ${titular} como agente titular.`
+      : 'Se registrará a tu nombre como sub-agente, con tu agente titular en la oportunidad.';
+  } else {
+    txt.textContent = 'La oportunidad se registrará a tu nombre. Puedes acreditarla a uno de tus sub-agentes.';
+  }
+  aviso.style.display = '';
 }
 
 function habilitarSubagente(on) {
@@ -259,9 +286,13 @@ async function crearOportunidad() {
   if (aseg)  data.aseguradora_actual = aseg;
   if (notas) data.notas = notas;
 
-  if (PUEDE_AGENTES) {
+  // El agente raíz solo acredita al sub-agente: el titular es él y lo resuelve
+  // el backend. Un sub-agente no manda ninguno de los dos.
+  if (perfil !== 'subagente') {
     const sub = document.getElementById('o-subagente').value;
     if (sub) data.subagente_id = sub;
+  }
+  if (PUEDE_AGENTES) {
     const ag = document.getElementById('o-agente').value;
     if (ag) data.agente_id = ag;
   }

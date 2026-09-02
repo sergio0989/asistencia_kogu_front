@@ -47,8 +47,9 @@ const authService = {
 
   // ── Ubicación comercial del usuario (Bf-07 §7.1 / backend B2-06) ──────────
   //
-  // `GET /auth/me` devuelve agente_id, agente_padre_id y promotoria_id, que es
-  // lo que decide qué pickers mostrar al dar de alta una póliza u oportunidad.
+  // `GET /auth/me` devuelve agente_id, agente_padre_id, padre_nombre y
+  // promotoria_id, que es lo que decide qué pickers mostrar al dar de alta una
+  // póliza u oportunidad y a nombre de quién se avisa que queda.
   // Ojo con la semántica: salen del ALCANCE comercial, no de la existencia de
   // fila en `agentes`. Un admin o supervisor CON fila los recibe en null, y un
   // promotor solo recibe promotoria_id. Sirven para esta decisión de UI, no
@@ -61,6 +62,7 @@ const authService = {
         ...(this.getUser() || {}),
         agente_id:       me?.agente_id ?? null,
         agente_padre_id: me?.agente_padre_id ?? null,
+        padre_nombre:    me?.padre_nombre ?? null,
         promotoria_id:   me?.promotoria_id ?? null,
       };
       sessionStorage.setItem('user', JSON.stringify(user));
