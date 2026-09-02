@@ -88,6 +88,11 @@
               <label>Ramo <span style="color:#dc2626">*</span></label>
               <select id="o-ramo" class="form-control"><option value="">— Seleccionar ramo —</option></select>
             </div>
+            <div class="form-group form-group--full" id="o-aviso-asignacion" style="display:none">
+              <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:10px 12px;font-size:12px;color:#0369a1">
+                <span id="o-aviso-asignacion-txt"></span>
+              </div>
+            </div>
             <div class="form-group" id="grupo-agente" style="display:none">
               <label>Agente de cartera</label>
               <div class="picker-field">
@@ -97,6 +102,16 @@
                 <button type="button" class="btn btn-ghost btn-sm" id="o-agente-clear" title="Quitar">✕</button>
               </div>
               <input type="hidden" id="o-agente">
+            </div>
+            <div class="form-group" id="grupo-subagente" style="display:none">
+              <label>Sub-agente</label>
+              <div class="picker-field">
+                <input type="text" id="o-subagente-label" class="form-control" readonly
+                       placeholder="Elige primero un agente">
+                <button type="button" class="btn btn-ghost btn-sm" id="o-subagente-btn" title="Buscar sub-agente">🔍</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="o-subagente-clear" title="Quitar">✕</button>
+              </div>
+              <input type="hidden" id="o-subagente">
             </div>
           </div>
         </div>

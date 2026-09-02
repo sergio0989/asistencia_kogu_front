@@ -34,6 +34,10 @@ const MAPA = {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // La ubicación comercial decide qué pickers se muestran (§7.1).
+  await authService.asegurarPerfilComercial();
+  perfil = authService.perfilComercial();
+
   await Promise.all([cargarRamos(), montarPickerAgente(), cargarPromotorias()]);
 
   // Canal chips
@@ -77,21 +81,63 @@ async function cargarRamos() {
 
 // Bf-07: agente y cliente dejan de volcarse/buscarse a mano y pasan al picker,
 // que trae debounce, paginación y errores visibles.
-let pkAgente  = null;
-let pkCliente = null;
+let pkAgente     = null;
+let pkCliente    = null;
+let pkSubagente  = null;
+// 'elevado' | 'agente_raiz' | 'subagente' (§7.1)
+let perfil = 'elevado';
 
+// §7.1: el reparto agente/sub-agente lo decide el backend según quién crea el
+// trato. Solo se piden los dos pickers a quien puede elegirlos — y `GET
+// /agentes` solo admite admin/supervisor/promotor, así que un rol `agente` ni
+// siquiera podría alimentarlos.
 function montarPickerAgente() {
-  if (!PUEDE_AGENTES) return;
+  if (!PUEDE_AGENTES) {
+    const aviso = document.getElementById('o-aviso-asignacion');
+    const txt   = document.getElementById('o-aviso-asignacion-txt');
+    if (aviso && txt) {
+      txt.textContent = perfil === 'subagente'
+        ? 'Se registrará a tu nombre como sub-agente, con tu agente titular en la oportunidad.'
+        : 'La oportunidad se registrará a tu nombre.';
+      aviso.style.display = '';
+    }
+    return;
+  }
+
   pkAgente = picker.bind({
     inputId:     'o-agente-label', hiddenId: 'o-agente',
     botonId:     'o-agente-btn',   limpiarId: 'o-agente-clear',
     titulo:      'Seleccionar agente',
     placeholder: 'Nombre, RFC o correo…',
     vacio:       'Escribe para buscar agentes.',
-    buscar:      (q, page) => agentesService.listar({ buscar: q, page, limit: 20 }),
+    buscar:      (q, page) => agentesService.listar({ buscar: q, page, limit: 20, solo_raiz: true }),
     item:        a => ({ id: a.id, titulo: a.nombre, sub: a.email || a.rfc || '—' }),
+    onSelect:    () => { pkSubagente?.set('', ''); habilitarSubagente(true); },
   });
   document.getElementById('grupo-agente').style.display = '';
+  document.getElementById('o-agente-clear')?.addEventListener('click', () => {
+    pkSubagente?.set('', ''); habilitarSubagente(false);
+  });
+
+  pkSubagente = picker.bind({
+    inputId:     'o-subagente-label', hiddenId: 'o-subagente',
+    botonId:     'o-subagente-btn',   limpiarId: 'o-subagente-clear',
+    titulo:      'Seleccionar sub-agente',
+    placeholder: 'Nombre, RFC o correo…',
+    vacio:       'Escribe para buscar sub-agentes.',
+    buscar:      (q, page) => agentesService.listar({
+      buscar: q, page, limit: 20, agente_padre_id: document.getElementById('o-agente').value || undefined,
+    }),
+    item:        a => ({ id: a.id, titulo: a.nombre, sub: a.email || a.rfc || '—' }),
+  });
+  document.getElementById('grupo-subagente').style.display = '';
+  habilitarSubagente(false);
+}
+
+function habilitarSubagente(on) {
+  pkSubagente?.habilitar(on);
+  const input = document.getElementById('o-subagente-label');
+  if (input) input.placeholder = on ? 'Buscar sub-agente…' : 'Elige primero un agente';
 }
 
 function montarPickerCliente() {
@@ -214,6 +260,8 @@ async function crearOportunidad() {
   if (notas) data.notas = notas;
 
   if (PUEDE_AGENTES) {
+    const sub = document.getElementById('o-subagente').value;
+    if (sub) data.subagente_id = sub;
     const ag = document.getElementById('o-agente').value;
     if (ag) data.agente_id = ag;
   }

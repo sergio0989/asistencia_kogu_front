@@ -11,10 +11,16 @@ const MAPA = {
   nombre: 'a-nombre', rfc: 'a-rfc', telefono: 'a-telefono', email: 'a-email',
   promotoria_id: 'a-promotoria', cedula_tipo: 'a-cedula-tipo',
   cedula_numero: 'a-cedula-numero', cedula_vigencia: 'a-cedula-vigencia',
+  agente_padre_id: 'a-agente-padre',
 };
+
+let pickerPadre       = null;
+let pickerFiltroPadre = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   await cargarPromotorias();
+  montarPickerPadre();
+  montarPickerFiltroPadre();
   await cargarAgentes();
 
   let timer;
@@ -23,6 +29,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     timer = setTimeout(() => { state.filtros.buscar = e.target.value.trim(); state.page = 1; cargarAgentes(); }, 350);
   });
   document.getElementById('filtro-activo')?.addEventListener('change', e => { state.filtros.activo = e.target.value; state.page = 1; cargarAgentes(); });
+  document.getElementById('filtro-jerarquia')?.addEventListener('change', e => {
+    aplicarJerarquia(e.target.value); state.page = 1; cargarAgentes();
+  });
   document.getElementById('btn-limpiar')?.addEventListener('click', limpiarFiltros);
   document.getElementById('btn-nuevo-agente')?.addEventListener('click', abrirModalCrear);
   document.getElementById('btn-guardar-agente')?.addEventListener('click', guardarAgente);
@@ -38,9 +47,63 @@ async function cargarPromotorias() {
   } catch { /* el promotor puede no ver el catálogo; el API usa su scope */ }
 }
 
+// ─── Jerarquía (B2-06) ────────────────────────────────────────────────────────
+// El backend expone `solo_raiz` y `agente_padre_id`; aquí se traducen a un
+// único selector de tres estados.
+// `solo_raiz` excluye a los sub-agentes; para verlos se filtra por su titular
+// con `agente_padre_id`, que es lo que acepta el backend (no existe un "todos
+// los que tienen padre").
+function aplicarJerarquia(valor) {
+  if (valor === 'raiz') {
+    state.filtros.solo_raiz = true;
+    pickerFiltroPadre?.set('', '');     // son excluyentes entre sí
+    state.filtros.agente_padre_id = undefined;
+  } else {
+    delete state.filtros.solo_raiz;
+  }
+}
+
+function montarPickerFiltroPadre() {
+  pickerFiltroPadre = picker.bind({
+    inputId:     'filtro-padre-label', hiddenId: 'filtro-padre',
+    botonId:     'filtro-padre-btn',   limpiarId: 'filtro-padre-clear',
+    titulo:      'Ver sub-agentes de…',
+    placeholder: 'Nombre, RFC o correo…',
+    vacio:       'Escribe para buscar agentes raíz.',
+    buscar:      (q, page) => agentesService.listar({ buscar: q, page, limit: 20, solo_raiz: true }),
+    item:        a => ({ id: a.id, titulo: a.nombre, sub: `${a.subagentes_count ?? 0} sub-agente(s)` }),
+  });
+  document.getElementById('filtro-padre')?.addEventListener('change', (e) => {
+    state.filtros.agente_padre_id = e.target.value || undefined;
+    if (e.target.value) {                       // ver los hijos de alguien
+      delete state.filtros.solo_raiz;           // es incompatible con solo_raiz
+      document.getElementById('filtro-jerarquia').value = '';
+    }
+    state.page = 1;
+    cargarAgentes();
+  });
+}
+
+function montarPickerPadre() {
+  pickerPadre = picker.bind({
+    inputId:     'a-padre-label', hiddenId: 'a-agente-padre',
+    botonId:     'a-padre-btn',   limpiarId: 'a-padre-clear',
+    titulo:      'Agente titular',
+    placeholder: 'Nombre, RFC o correo…',
+    vacio:       'Escribe para buscar agentes raíz.',
+    // Un sub-agente no puede tener sub-agentes: solo se ofrecen raíces, y de
+    // la promotoría elegida en el formulario.
+    buscar:      (q, page) => agentesService.listar({
+      buscar: q, page, limit: 20, solo_raiz: true,
+      promotoria_id: document.getElementById('a-promotoria')?.value || undefined,
+    }),
+    item:        a => ({ id: a.id, titulo: a.nombre, sub: a.email || a.rfc || '—' }),
+  });
+}
+
 // ─── Lista ────────────────────────────────────────────────────────────────────
 async function cargarAgentes() {
-  table.showSkeleton('#tabla-agentes-body', 7, 6);
+  table.showSkeleton('#tabla-agentes-body', 9, 6);
   try {
     const result = await agentesService.listar({ ...state.filtros, page: state.page, limit: state.limit });
     const rows = result?.data || [];
@@ -69,7 +132,7 @@ function renderFilas(rows) {
   if (!tbody) return;
   if (!rows.length) {
     // estático: estado vacío
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8">No se encontraron agentes.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:40px;color:#94a3b8">No se encontraron agentes.</td></tr>`;
     return;
   }
   // a.id: UUID propio → onclick; demás datos escapados.
@@ -82,9 +145,13 @@ function renderFilas(rows) {
           <div class="ag-avatar">${fmt.esc(inicial)}</div>
           <div><strong>${fmt.esc(a.nombre)}</strong>${a.rfc ? `<div style="font-size:11px;color:#94a3b8">${fmt.esc(a.rfc)}</div>` : ''}</div>
         </div></td>
+        <td style="font-size:12px;color:#475569">${a.padre_nombre
+            ? fmt.esc(a.padre_nombre)
+            : '<span style="color:#94a3b8">—</span>'}</td>
         <td style="font-size:12px;color:#475569">${a.telefono ? fmt.esc(fmt.telefono(a.telefono)) : '—'}${a.email ? `<div style="color:#94a3b8">${fmt.esc(a.email)}</div>` : ''}</td>
         <td style="font-size:12px">${a.cedula_numero ? fmt.esc(a.cedula_numero) : '—'}${a.cedula_tipo ? ` <span style="color:#94a3b8">(${fmt.esc(a.cedula_tipo)})</span>` : ''}</td>
         <td>${a.cedula_vigencia ? `${fmt.fecha(a.cedula_vigencia)} ${fmt.badgeHtml(ced.label, ced.class)}` : '—'}</td>
+        <td style="text-align:center">${fmt.esc(a.subagentes_count ?? 0)}</td>
         <td style="text-align:center">${fmt.esc(a.clientes_count ?? 0)}</td>
         <td>${a.activo ? '<span><span class="status-dot dot-active"></span>Activo</span>' : '<span style="color:#94a3b8"><span class="status-dot dot-inactive"></span>Inactivo</span>'}</td>
         <td style="text-align:center">
@@ -124,6 +191,7 @@ function abrirModalEditar(id) {
     document.getElementById('a-activo').checked        = a.activo;
     document.getElementById('grupo-activo').style.display = 'block';
     if (a.promotoria_id) document.getElementById('a-promotoria').value = a.promotoria_id;
+    pickerPadre?.set(a.agente_padre_id || '', a.padre_nombre || '');
     modal.open('modal-agente');
   } catch (err) {
     // Antes no había try/catch: cualquier fallo dejaba el modal a medio armar.
@@ -146,6 +214,10 @@ async function guardarAgente() {
     cedula_numero:   document.getElementById('a-cedula-numero').value.trim() || undefined,
     cedula_vigencia: document.getElementById('a-cedula-vigencia').value || undefined,
   };
+  // null explícito para desligar a un sub-agente; el backend acepta allow(null).
+  const padreId = document.getElementById('a-agente-padre').value;
+  data.agente_padre_id = padreId || null;
+
   if (state.editandoId) {
     data.activo = document.getElementById('a-activo').checked;
   } else {
@@ -208,7 +280,9 @@ async function subirDocumento() {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function limpiarFiltros() {
   state.filtros = {}; state.page = 1;
-  ['filtro-buscar', 'filtro-activo'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['filtro-buscar', 'filtro-activo', 'filtro-jerarquia']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  pickerFiltroPadre?.set('', '');
   cargarAgentes();
 }
 function limpiarForm() {
@@ -216,6 +290,7 @@ function limpiarForm() {
   ['a-nombre', 'a-rfc', 'a-telefono', 'a-email', 'a-cedula-tipo', 'a-cedula-numero', 'a-cedula-vigencia']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('a-activo').checked = true;
+  pickerPadre?.set('', '');
 }
 
 window.abrirModalEditar = abrirModalEditar;

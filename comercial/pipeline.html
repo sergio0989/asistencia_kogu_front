@@ -76,6 +76,13 @@
           <button type="button" class="btn btn-ghost btn-sm" id="filtro-agente-clear" title="Quitar filtro">✕</button>
         </span>
         <input type="hidden" id="filtro-agente">
+        <span class="picker-field" id="grupo-filtro-subagente" style="display:none">
+          <input type="text" id="filtro-subagente-label" class="form-control" readonly
+                 placeholder="Todos los sub-agentes" style="min-width:180px">
+          <button type="button" class="btn btn-ghost btn-sm" id="filtro-subagente-btn" title="Buscar sub-agente">🔍</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="filtro-subagente-clear" title="Quitar filtro">✕</button>
+        </span>
+        <input type="hidden" id="filtro-subagente">
         <select id="filtro-canal">
           <option value="">Todos los canales</option>
           <option value="agente">Agente</option>

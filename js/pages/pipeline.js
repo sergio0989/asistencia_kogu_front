@@ -35,6 +35,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('filtro-agente')?.addEventListener('change', e => {
     state.filtros.agente_id = e.target.value; cargarPipeline();
   });
+  document.getElementById('filtro-subagente')?.addEventListener('change', e => {
+    state.filtros.subagente_id = e.target.value; cargarPipeline();
+  });
   document.getElementById('filtro-canal')?.addEventListener('change', e => {
     state.filtros.canal_origen = e.target.value; cargarPipeline();
   });
@@ -61,6 +64,7 @@ async function cargarRamos() {
 // Bf-07: el filtro de agente pasa de <select> volcado (limit:200) a picker con
 // búsqueda contra el servidor.
 let pkFiltroAgente = null;
+let pkFiltroSub    = null;
 
 function montarPickerAgente() {
   if (!PUEDE_AGENTES) return;   // agente puro: el API fuerza su cartera
@@ -74,6 +78,18 @@ function montarPickerAgente() {
     item:        a => ({ id: a.id, titulo: a.nombre, sub: a.email || a.rfc || '—' }),
   });
   document.getElementById('grupo-filtro-agente').style.display = '';
+
+  // Filtro por sub-agente (B2-06): el backend acepta subagente_id.
+  pkFiltroSub = picker.bind({
+    inputId:     'filtro-subagente-label', hiddenId: 'filtro-subagente',
+    botonId:     'filtro-subagente-btn',   limpiarId: 'filtro-subagente-clear',
+    titulo:      'Filtrar por sub-agente',
+    placeholder: 'Nombre, RFC o correo…',
+    vacio:       'Escribe para buscar sub-agentes.',
+    buscar:      (q, page) => agentesService.listar({ buscar: q, page, limit: 20 }),
+    item:        a => ({ id: a.id, titulo: a.nombre, sub: a.padre_nombre ? `Depende de ${a.padre_nombre}` : 'Agente raíz' }),
+  });
+  document.getElementById('grupo-filtro-subagente').style.display = '';
 }
 
 // ─── KPIs (snapshot global del pipeline, independiente de los filtros) ───────
@@ -185,6 +201,7 @@ function toggleCerradas() {
 function limpiarFiltros() {
   state.filtros = {};
   pkFiltroAgente?.set('', '');
+  pkFiltroSub?.set('', '');
   ['filtro-buscar', 'filtro-ramo', 'filtro-canal']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   cargarPipeline();

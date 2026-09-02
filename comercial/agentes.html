@@ -37,6 +37,17 @@
       <div class="filters-bar">
         <input type="text" id="filtro-buscar" placeholder="🔍  Nombre, RFC o email…">
         <select id="filtro-activo"><option value="">Todos</option><option value="true">Activos</option><option value="false">Inactivos</option></select>
+        <select id="filtro-jerarquia">
+          <option value="">Todos (raíz y sub-agentes)</option>
+          <option value="raiz">Solo agentes raíz</option>
+        </select>
+        <span class="picker-field">
+          <input type="text" id="filtro-padre-label" class="form-control" readonly
+                 placeholder="Sub-agentes de…" style="min-width:180px">
+          <button type="button" class="btn btn-ghost btn-sm" id="filtro-padre-btn" title="Elegir titular">🔍</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="filtro-padre-clear" title="Quitar filtro">✕</button>
+        </span>
+        <input type="hidden" id="filtro-padre">
         <button class="btn btn-ghost btn-sm" id="btn-limpiar">Limpiar</button>
         <span id="contador-agentes" style="margin-left:auto;font-size:13px;color:#64748b"></span>
       </div>
@@ -44,8 +55,9 @@
       <div class="table-wrap">
         <table style="width:100%">
           <thead><tr>
-            <th>Agente</th><th>Contacto</th><th>Cédula</th><th>Vigencia cédula</th>
-            <th style="text-align:center">Clientes</th><th>Estado</th><th style="text-align:center">Acciones</th>
+            <th>Agente</th><th>Depende de</th><th>Contacto</th><th>Cédula</th><th>Vigencia cédula</th>
+            <th style="text-align:center">Sub-agentes</th><th style="text-align:center">Clientes</th>
+            <th>Estado</th><th style="text-align:center">Acciones</th>
           </tr></thead>
           <tbody id="tabla-agentes-body"></tbody>
         </table>
@@ -66,6 +78,19 @@
       <div class="form-group"><label>Teléfono</label><input type="text" id="a-telefono" class="form-control" maxlength="20"></div>
       <div class="form-group"><label>Email</label><input type="email" id="a-email" class="form-control" maxlength="150"></div>
       <div class="form-group" id="grupo-promotoria"><label>Promotoría</label><select id="a-promotoria" class="form-control"></select></div>
+      <div class="form-group">
+        <label>Depende de (agente)</label>
+        <div class="picker-field">
+          <input type="text" id="a-padre-label" class="form-control" readonly
+                 placeholder="— Agente raíz (sin dependencia) —">
+          <button type="button" class="btn btn-ghost btn-sm" id="a-padre-btn" title="Buscar agente">🔍</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="a-padre-clear" title="Quitar">✕</button>
+        </div>
+        <input type="hidden" id="a-agente-padre">
+        <div style="font-size:11px;color:#94a3b8;margin-top:4px">
+          Un solo nivel: el titular debe ser un agente raíz de la misma promotoría.
+        </div>
+      </div>
       <div class="form-group"><label>Cédula tipo</label><input type="text" id="a-cedula-tipo" class="form-control" maxlength="5" placeholder="A, B, C…"></div>
       <div class="form-group"><label>Cédula número</label><input type="text" id="a-cedula-numero" class="form-control" maxlength="30"></div>
       <div class="form-group"><label>Vigencia de cédula</label><input type="date" id="a-cedula-vigencia" class="form-control"></div>
@@ -105,6 +130,7 @@
 <script src="/js/utils/format.js"></script>
 <script src="/js/utils/toast.js"></script>
 <script src="/js/utils/modal.js"></script>
+<script src="/js/utils/picker.js"></script>
 <script src="/js/utils/table.js"></script>
 <script src="/js/utils/formErrors.js"></script>
 <script src="/js/components/sidebar.js"></script>

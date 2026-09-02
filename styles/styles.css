@@ -2609,6 +2609,21 @@ tr.urgencia-row--bajo:hover{background:#f8fafc}
 [data-tab]:hover:not(.active){background:#f8fafc}
 
 /* ── Retícula de datos para pantallas de detalle (póliza, cliente, oportunidad) ── */
+/* Bloque de sección dentro de una .card. Vivía suelto en detalle.html y
+   oportunidad.html (KA-F-14), así que en el panel comercial, la ficha de
+   cliente, renovaciones y el detalle de póliza los títulos salían sin
+   formato. detalle.html conserva su variante local, más densa, a juego con
+   sus overrides de .data-grid/.data-field. */
+.data-section{margin-bottom:14px}
+.data-section__title{
+  font-size:12px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:#475569;
+  margin-bottom:14px;
+}
+
 .data-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
 .data-field{background:#f8fafc;border:1px solid #eef1f5;border-radius:10px;padding:10px 13px}
 .data-field__label{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;font-weight:700}

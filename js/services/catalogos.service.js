@@ -117,6 +117,11 @@ const catalogosService = {
     return api.get('/catalogos/promotorias');
   },
 
+  /** Usos de un ramo (B2-06). Hoy solo AUT tiene; otros ramos devuelven []. */
+  async getUsos(ramo_id) {
+    return api.get(`/catalogos/usos?ramo_id=${encodeURIComponent(ramo_id)}`);
+  },
+
   // ── PROMOTORÍA P2 (Bf-05) ────────────────────────────────────────────────
 
   /** Cuestionario de primer contacto del ramo (contexto 'promotoria'). */

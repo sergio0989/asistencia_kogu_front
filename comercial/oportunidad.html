@@ -15,7 +15,6 @@
     .mini-table{width:100%;border-collapse:collapse;font-size:13px}
     .mini-table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;padding:6px 8px;border-bottom:1px solid #f1f5f9}
     .mini-table td{padding:8px;border-bottom:1px solid #f8fafc;vertical-align:top}
-    .data-section__title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#475569;margin-bottom:14px}
     .data-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
     .data-field__label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;font-weight:700}
     .data-field__value{font-size:13px;color:#0f172a;margin-top:3px}
@@ -141,9 +140,16 @@
           </select></div>
         <div class="form-group"><label>Vigencia inicio <span style="color:#dc2626">*</span></label><input type="date" id="cv-vig-inicio" class="form-control"></div>
         <div class="form-group"><label>Vigencia fin</label><input type="date" id="cv-vig-fin" class="form-control"></div>
-        <div class="form-group"><label>Prima total</label><input type="number" id="cv-prima" class="form-control" step="0.01" min="0"></div>
+        <div class="form-group"><label>Prima total (lo que paga el cliente)</label><input type="number" id="cv-prima" class="form-control" step="0.01" min="0"></div>
+        <div class="form-group"><label>Prima neta</label><input type="number" id="cv-prima-neta" class="form-control" step="0.01" min="0"></div>
         <div class="form-group"><label>Producto</label><input type="text" id="cv-producto" class="form-control" maxlength="150"></div>
-        <div class="form-group"><label>% Comisión</label><input type="number" id="cv-comision" class="form-control" step="0.01" min="0" max="100"></div>
+        <div class="form-group"><label>Fecha de venta</label><input type="date" id="cv-fecha-venta" class="form-control"></div>
+        <div class="form-group"><label>Comisión agente % (sobre prima neta)</label><input type="number" id="cv-comision" class="form-control" step="0.01" min="0" max="100"></div>
+        <div class="form-group" id="grupo-cv-comision-sub" style="display:none"><label>Comisión sub-agente % (sobre prima neta)</label><input type="number" id="cv-comision-sub" class="form-control" step="0.01" min="0" max="100"></div>
+        <div class="form-group form-group--full">
+          <label>Se hereda de la oportunidad</label>
+          <div id="cv-heredado" style="font-size:12px;color:#0369a1;background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:8px 12px">—</div>
+        </div>
         <div class="form-group form-group--full"><label>Notas</label><textarea id="cv-notas" class="form-control" rows="2" maxlength="4000"></textarea></div>
       </div></form>
     </div>
