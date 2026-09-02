@@ -717,10 +717,11 @@ async function subirDocumento(file) {
 
 async function descargarDocumento(docId) {
   try {
-    const { url } = await asistenciasService.getUrlDocumento(expedienteId, docId);
-    window.open(url, '_blank');
+    const { url, nombre } = await asistenciasService.getUrlDocumento(expedienteId, docId);
+    await descargas.abrirDocumento(url, nombre);
   } catch (err) {
-    toast.error('No se pudo obtener el documento');
+    console.error('No se pudo obtener el documento', err);
+    toast.error(err.message || 'No se pudo obtener el documento');
   }
 }
 

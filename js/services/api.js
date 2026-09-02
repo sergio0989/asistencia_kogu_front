@@ -102,6 +102,42 @@ async function request(method, path, body = null, isFormData = false, retry = tr
   return json;
 }
 
+// ─── Descarga binaria ─────────────────────────────────────────────────────────
+//
+// `/api/v1/files/<key>` exige el JWT en la cabecera Authorization, así que un
+// window.open sobre esa URL siempre recibía 401: la pestaña no manda cabeceras
+// (KA-E-01). Aquí se baja con fetch autenticado y se devuelve un Blob, reusando
+// el MISMO manejo de token y de reintento con /auth/refresh que `request`.
+async function requestBlob(path, retry = true) {
+  const token = getToken();
+  const headers = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${path}`, { method: 'GET', headers });
+  } catch (err) {
+    throw new ApiError('No se pudo conectar con el servidor. Verifica tu conexión.', 0, 'NETWORK_ERROR');
+  }
+
+  if (res.status === 401 && retry) {
+    const renewed = await refreshAccessToken();
+    if (renewed) return requestBlob(path, false);
+    redirectToLogin();
+    return null;
+  }
+
+  if (!res.ok) {
+    // El cuerpo de error sí es JSON; si no se puede leer, basta el status.
+    const json = await res.json().catch(() => null);
+    const msg  = json?.error?.message || json?.message || `Error ${res.status}`;
+    const code = json?.error?.code    || 'UNKNOWN_ERROR';
+    throw new ApiError(msg, res.status, code, json?.error?.details);
+  }
+
+  return res.blob();
+}
+
 // ─── Clase de error enriquecida ───────────────────────────────────────────────
 
 class ApiError extends Error {
@@ -123,6 +159,7 @@ const api = {
   patch:        (path, body)        => request('PATCH',  path, body),
   del:          (path)              => request('DELETE', path),
   postFormData: (path, formData)    => request('POST',   path, formData, true),
+  getBlob:      (path)              => requestBlob(path),
 
   // Helpers de token (para uso desde auth.service)
   getToken,

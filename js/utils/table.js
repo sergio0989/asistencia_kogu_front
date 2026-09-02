@@ -41,6 +41,19 @@ const table = {
 
   /**
    * Renderiza controles de paginación.
+   *
+   * KA-F-02: antes cada botón llevaba `onclick="(${onPage.toString()})(n)"`, es
+   * decir el callback serializado dentro del atributo. Al evaluarse en ámbito
+   * global perdía el closure, así que un callback que capturara variables
+   * locales —como el de Empresas y Proveedores, que usa `rows`, parámetro de
+   * `renderTabla`— reventaba con ReferenceError en consola: la tabla no
+   * cambiaba y no había ni toast ni indicio visual.
+   *
+   * Ahora los botones solo llevan `data-page` y un único listener delegado en
+   * el contenedor llama a `onPage` POR REFERENCIA, conservando su closure
+   * (mismo patrón que la delegación de js/utils/picker.js). De paso deja de
+   * romper la minificación y de necesitar 'unsafe-inline' en la CSP.
+   *
    * @param {string}   containerSelector
    * @param {object}   meta   - { total, page, limit, pages }
    * @param {Function} onPage - callback(pageNumber)
@@ -53,35 +66,48 @@ const table = {
     const from = ((page - 1) * limit) + 1;
     const to   = Math.min(page * limit, total);
 
+    const btn = (etiqueta, destino, { activo = false, deshabilitado = false } = {}) =>
+      `<button class="btn-page ${activo ? 'active' : ''} ${deshabilitado ? 'disabled' : ''}"
+        ${deshabilitado ? 'disabled' : `data-page="${destino}"`}>${etiqueta}</button>`;
+
     let html = `<span class="pagination-info">Mostrando ${from}–${to} de ${total}</span>`;
     html += `<div class="pagination-controls">`;
 
-    // Anterior
-    html += `<button class="btn-page ${page <= 1 ? 'disabled' : ''}"
-      ${page <= 1 ? 'disabled' : `onclick="(${onPage.toString()})(${page - 1})"`}>
-      &#8249;
-    </button>`;
+    html += btn('&#8249;', page - 1, { deshabilitado: page <= 1 });
 
-    // Páginas
     const delta = 2;
     const range = [];
     for (let i = Math.max(1, page - delta); i <= Math.min(pages, page + delta); i++) {
       range.push(i);
     }
-    if (range[0] > 1)     { html += `<button class="btn-page" onclick="(${onPage.toString()})(1)">1</button>`; if (range[0] > 2) html += `<span class="pagination-ellipsis">…</span>`; }
-    range.forEach(p => {
-      html += `<button class="btn-page ${p === page ? 'active' : ''}" onclick="(${onPage.toString()})(${p})">${p}</button>`;
-    });
-    if (range[range.length - 1] < pages) { if (range[range.length - 1] < pages - 1) html += `<span class="pagination-ellipsis">…</span>`; html += `<button class="btn-page" onclick="(${onPage.toString()})(${pages})">${pages}</button>`; }
+    if (range[0] > 1) {
+      html += btn(1, 1);
+      if (range[0] > 2) html += `<span class="pagination-ellipsis">…</span>`;
+    }
+    range.forEach((p) => { html += btn(p, p, { activo: p === page }); });
+    if (range[range.length - 1] < pages) {
+      if (range[range.length - 1] < pages - 1) html += `<span class="pagination-ellipsis">…</span>`;
+      html += btn(pages, pages);
+    }
 
-    // Siguiente
-    html += `<button class="btn-page ${page >= pages ? 'disabled' : ''}"
-      ${page >= pages ? 'disabled' : `onclick="(${onPage.toString()})(${page + 1})"`}>
-      &#8250;
-    </button>`;
+    html += btn('&#8250;', page + 1, { deshabilitado: page >= pages });
 
     html += `</div>`;
     container.innerHTML = html; // estático: solo números de página y controles
+
+    // Un solo listener por contenedor. Se reemplaza en cada render (la función
+    // cambia con cada `onPage`), por eso se guarda para poder retirarlo.
+    if (container._onPageClick) {
+      container.removeEventListener('click', container._onPageClick);
+    }
+    container._onPageClick = (e) => {
+      const boton = e.target.closest('[data-page]');
+      if (!boton || !container.contains(boton)) return;
+      const destino = parseInt(boton.dataset.page, 10);
+      if (Number.isNaN(destino) || destino < 1 || destino > pages || destino === page) return;
+      if (typeof onPage === 'function') onPage(destino);
+    };
+    container.addEventListener('click', container._onPageClick);
   },
 
   // Muestra skeleton loader mientras carga

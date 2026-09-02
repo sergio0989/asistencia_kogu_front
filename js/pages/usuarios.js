@@ -1,12 +1,33 @@
 'use strict';
 /**
  * usuarios.js — Gestión completa de usuarios del sistema.
- * Depende de: api.js, usuarios.service.js, fmt, toast, modal, table
+ * Depende de: api.js, usuarios.service.js, catalogos.service.js, fmt, toast, modal, table
  */
 
 const state = { page: 1, limit: 15, filtros: {}, editandoId: null, resetUserId: null };
 
+// KA-F-01: el markup traía las casillas de rol escritas a mano y le faltaban
+// `promotor` y `agente`. Como al guardar el backend REEMPLAZA el conjunto
+// completo de roles, editarle el teléfono a un ['operador','promotor'] lo
+// dejaba en ['operador'] — perdía la promotoría sin que nadie se enterara. Y si
+// solo tenía 'promotor', el front exigía "al menos un rol" y quedaba ineditable.
+// La fuente de verdad pasa a ser GET /catalogos/roles.
+//
+// Reserva por si el catálogo no se puede leer: la página es visible para
+// supervisor/operador, pero /catalogos/roles es admin-only y les responde 403.
+// Incluye los siete roles, así que el fallo original no vuelve ni en ese caso.
+const ROLES_RESERVA = [
+  { clave: 'admin',      nombre: 'Administrador' },
+  { clave: 'supervisor', nombre: 'Supervisor' },
+  { clave: 'operador',   nombre: 'Operador' },
+  { clave: 'abogado',    nombre: 'Abogado' },
+  { clave: 'cabina',     nombre: 'Cabina' },
+  { clave: 'promotor',   nombre: 'Promotor' },
+  { clave: 'agente',     nombre: 'Agente' },
+];
+
 document.addEventListener('DOMContentLoaded', async () => {
+  await cargarRoles();
   await cargarUsuarios();
 
   // Filtros con debounce
@@ -206,6 +227,37 @@ function limpiarFiltros() {
     if (el) el.value = '';
   });
   cargarUsuarios();
+}
+
+// ─── Catálogo de roles ────────────────────────────────────────────────────────
+async function cargarRoles() {
+  let roles;
+  try {
+    roles = await catalogosService.getRoles();
+  } catch (err) {
+    // 403 es esperable para supervisor/operador: se cae a la reserva sin ruido.
+    console.error('No se pudo cargar el catálogo de roles', err);
+    if (err?.status !== 403) toast.error('No se pudo cargar el catálogo de roles');
+  }
+  if (!Array.isArray(roles) || !roles.length) roles = ROLES_RESERVA;
+
+  const etiqueta = (r) => r.nombre || r.clave;
+
+  // Filtro del listado
+  const filtro = document.getElementById('filtro-rol');
+  if (filtro) {
+    filtro.innerHTML = '<option value="">Todos los roles</option>' +
+      roles.map(r => `<option value="${fmt.esc(r.clave)}">${fmt.esc(etiqueta(r))}</option>`).join('');
+  }
+
+  // Casillas del modal de alta/edición
+  const cont = document.getElementById('roles-checkboxes');
+  if (cont) {
+    cont.innerHTML = roles.map(r => `
+      <label class="checkbox-item">
+        <input type="checkbox" name="roles" value="${fmt.esc(r.clave)}"> ${fmt.esc(etiqueta(r))}
+      </label>`).join('');
+  }
 }
 
 function limpiarForm() {

@@ -43,13 +43,9 @@
       <!-- FILTROS -->
       <div class="filters-bar">
         <input type="text" id="filtro-buscar" placeholder="🔍  Buscar por nombre o email…">
+        <!-- Opciones pobladas desde GET /catalogos/roles (usuarios.js) -->
         <select id="filtro-rol">
           <option value="">Todos los roles</option>
-          <option value="admin">Administrador</option>
-          <option value="supervisor">Supervisor</option>
-          <option value="operador">Operador</option>
-          <option value="abogado">Abogado</option>
-          <option value="cabina">Cabina</option>
         </select>
         <select id="filtro-activo">
           <option value="">Todos</option>
@@ -113,13 +109,11 @@
           </div>
           <div class="form-group form-group--full">
             <label>Roles <span style="color:#dc2626">*</span></label>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px" id="roles-checkboxes">
-              <label class="checkbox-item"><input type="checkbox" name="roles" value="admin">     Administrador</label>
-              <label class="checkbox-item"><input type="checkbox" name="roles" value="supervisor"> Supervisor</label>
-              <label class="checkbox-item"><input type="checkbox" name="roles" value="operador">   Operador</label>
-              <label class="checkbox-item"><input type="checkbox" name="roles" value="abogado">    Abogado</label>
-              <label class="checkbox-item"><input type="checkbox" name="roles" value="cabina">     Cabina</label>
-            </div>
+            <!-- Casillas pobladas desde GET /catalogos/roles (usuarios.js). Escribirlas
+                 a mano dejaba fuera a promotor y agente, y al guardar el backend
+                 reemplaza el conjunto completo: editar un usuario le borraba esos
+                 roles sin avisar (KA-F-01). -->
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px" id="roles-checkboxes"></div>
           </div>
           <div class="form-group form-group--full" id="grupo-activo" style="display:none">
             <label class="checkbox-item">
@@ -168,6 +162,7 @@
 <script src="/js/utils/table.js"></script>
 <script src="/js/components/sidebar.js"></script>
 <script src="/js/utils/auth.guard.js"></script>
+<script src="/js/services/catalogos.service.js"></script>
 <script src="/js/services/usuarios.service.js"></script>
 <script src="/js/pages/usuarios.js"></script>
 </body>
