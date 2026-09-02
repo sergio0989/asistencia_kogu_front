@@ -1,0 +1,33 @@
+# Kogu Asistencias — frontend (Bf-09)
+#
+# El Document Root de cotizador.kogu.ink ES el repositorio, así que este archivo
+# se despliega con el código.
+
+# ── Caché ───────────────────────────────────────────────────────────────────
+# Los assets llevan ?v=<version> en la URL (ver scripts/versionar-assets.py), así
+# que cachearlos un año es seguro: cada release cambia su URL. El HTML NO se puede
+# versionar a sí mismo y es lo que trae esas URLs, por eso se revalida siempre.
+# Sin esta parte el versionado no sirve: un navegador con el HTML viejo en caché
+# seguiría pidiendo los assets sin query.
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+  <FilesMatch "\.(js|css|woff2?|png|jpg|jpeg|svg|ico)$">
+    Header set Cache-Control "public, max-age=31536000"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html "access plus 0 seconds"
+</IfModule>
+
+# ── No publicar lo que no es del sitio ──────────────────────────────────────
+# docs/ son los briefs de desarrollo: describen decisiones internas y hallazgos
+# de seguridad. Viven en el repo y el repo es el docroot, así que hay que negarlos
+# explícitamente.
+RedirectMatch 404 ^/docs/
+RedirectMatch 404 ^/scripts/
+RedirectMatch 404 ^/\.git
+RedirectMatch 404 ^/README\.md$
