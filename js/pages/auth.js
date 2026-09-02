@@ -6,17 +6,26 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
-  // Roles comerciales puros (agente/promotor) aterrizan en el Panel comercial;
-  // el resto en el Dashboard operativo.
+  // Cada rol aterriza en una pantalla que de verdad puede abrir (Bf-10).
+  //
+  // Antes todo el que no fuera comercial puro iba a /dashboard.html, que pide
+  // /asistencias/kpis y /proveedores: un abogado entraba y recibía 403, es
+  // decir, iniciaba sesión y no tenía a dónde ir. La cabina tampoco alcanza los
+  // KPIs, así que su sitio es la bandeja.
   function landingUrl() {
     try {
       const u = JSON.parse(sessionStorage.getItem('user') || 'null');
       const roles = Array.isArray(u && u.roles) ? u.roles : [];
-      const OPERATIVOS = ['admin', 'supervisor', 'operador', 'cabina'];
-      const comercialPuro = roles.some(r => r === 'agente' || r === 'promotor')
-        && !roles.some(r => OPERATIVOS.includes(r));
-      return comercialPuro ? '/comercial/dashboard.html' : '/dashboard.html';
-    } catch { return '/dashboard.html'; }
+      const tiene = (...rs) => rs.some(r => roles.includes(r));
+
+      // Dashboard operativo: solo quien puede leer sus KPIs.
+      if (tiene('admin', 'supervisor', 'operador')) return '/dashboard.html';
+      // Abogado y cabina: listan expedientes (el API los acota) pero no KPIs.
+      if (tiene('abogado', 'cabina')) return '/bandeja.html';
+      // Comerciales puros.
+      if (tiene('agente', 'promotor')) return '/comercial/dashboard.html';
+      return '/bandeja.html';
+    } catch { return '/bandeja.html'; }
   }
 
 

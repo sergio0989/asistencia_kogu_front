@@ -51,28 +51,38 @@ function renderReloj() {
 
 // ─── Carga principal ──────────────────────────────────────────────────────────
 async function cargarDashboard() {
-  try {
-    const [kpis, recientes, criticos, proveedoresResp, porCanal] = await Promise.all([
-      asistenciasService.getKpis(),
-      asistenciasService.listar({ limit: 8, page: 1 }),
-      asistenciasService.listar({ nivel_urgencia: 'critico', estatus_macro: 'activo', limit: 5, page: 1 }),
-      proveedoresService.listar({ todos: 1, limit: 4 }),
-      cargarConteoCanales(),
-    ]);
-    const proveedores = proveedoresResp?.data ?? [];
+  // KA-F-03: esto era un Promise.all, así que un solo 403 —el de /proveedores
+  // para un operador, por ejemplo— tumbaba el render completo y la pantalla
+  // quedaba en blanco con un toast. Con allSettled cada bloque se pinta o
+  // explica su propio fallo, sin arrastrar a los demás.
+  const [kpis, recientes, criticos, proveedores, porCanal] = await Promise.allSettled([
+    asistenciasService.getKpis(),
+    asistenciasService.listar({ limit: 8, page: 1 }),
+    asistenciasService.listar({ nivel_urgencia: 'critico', estatus_macro: 'activo', limit: 5, page: 1 }),
+    proveedoresService.listar({ todos: 1, limit: 4 }),
+    cargarConteoCanales(),
+  ]);
 
-    renderKpis(kpis);
-    renderUrgenciaBar(kpis);
-    renderCanales(porCanal);
-    renderAlertas(criticos?.data || []);
-    renderTopProveedores(proveedores);
-    renderTablaRecientes(recientes?.data || []);
-    renderTimestamp();
+  const bloque = (resultado, pintar, selectorAviso, etiqueta) => {
+    if (resultado.status === 'fulfilled') {
+      pintar(resultado.value);
+      return;
+    }
+    console.error(`Dashboard: no se pudo cargar ${etiqueta}`, resultado.reason);
+    avisarBloque(selectorAviso, resultado.reason);
+  };
 
-  } catch (err) {
-    console.error('Error cargando dashboard:', err);
-    toast.error('No se pudo cargar el dashboard');
-  }
+  bloque(kpis,        (v) => { renderKpis(v); renderUrgenciaBar(v); }, '#kpi-grid',            'los indicadores');
+  bloque(porCanal,    (v) => renderCanales(v),                        '#canal-list',           'el conteo por canal');
+  bloque(criticos,    (v) => renderAlertas(v?.data || []),            '#alertas-list',         'las alertas críticas');
+  bloque(proveedores, (v) => renderTopProveedores(v?.data ?? []),     '#top-abogados-list',    'los proveedores');
+  bloque(recientes,   (v) => renderTablaRecientes(v?.data || []),     '#tabla-recientes-body', 'los casos recientes');
+  renderTimestamp();
+
+  // Si TODO falló, el problema no es de permisos por bloque.
+  const fallaron = [kpis, recientes, criticos, proveedores, porCanal]
+    .filter(r => r.status === 'rejected').length;
+  if (fallaron === 5) toast.error('No se pudo cargar el dashboard');
 }
 
 // ─── KPI Cards ────────────────────────────────────────────────────────────────
@@ -127,17 +137,41 @@ function renderUrgenciaBar(k) {
   }).join('');
 }
 
+// Un bloque que no cargó lo dice en su sitio, en vez de desaparecer sin
+// explicación. Un 403 no es un error del sistema: es que ese rol no lo ve.
+function avisarBloque(selector, err) {
+  const cont = document.querySelector(selector);
+  if (!cont) return;
+  const esPermiso = err?.status === 403;
+  const texto = esPermiso
+    ? 'Tu rol no tiene acceso a esta información.'
+    : 'No se pudo cargar esta sección.';
+  const color = esPermiso ? '#94a3b8' : '#dc2626';
+  const estilo = `padding:18px;text-align:center;font-size:12px;color:${color}`;
+  // Dentro de un <tbody> hace falta una fila; un <div> suelto no es válido.
+  // estático salvo `texto`, que sale de las dos constantes de arriba.
+  cont.innerHTML = cont.tagName === 'TBODY'
+    ? `<tr><td colspan="99" style="${estilo}">${fmt.esc(texto)}</td></tr>`
+    : `<div style="${estilo}">${fmt.esc(texto)}</div>`;
+}
+
 // ─── Conteo por canal (consulta separada) ─────────────────────────────────────
 async function cargarConteoCanales() {
-  try {
-    const canales = ['llamada', 'web', 'whatsapp', 'interno'];
-    const resultados = await Promise.all(
-      canales.map(c => asistenciasService.listar({ canal_origen: c, estatus_macro: 'activo', limit: 1, page: 1 }))
-    );
-    return Object.fromEntries(canales.map((c, i) => [c, resultados[i]?.meta?.total ?? 0]));
-  } catch {
-    return {};
-  }
+  // Cuatro consultas independientes: si alguna falla, se informa ese canal en
+  // cero y las demás se cuentan igual. Antes un fallo devolvía {} y los cuatro
+  // canales salían en cero sin decir por qué.
+  const canales = ['llamada', 'web', 'whatsapp', 'interno'];
+  const resultados = await Promise.allSettled(
+    canales.map(c => asistenciasService.listar({ canal_origen: c, estatus_macro: 'activo', limit: 1, page: 1 })),
+  );
+
+  // Si fallaron todas, es un problema real (permisos o red): se propaga para
+  // que el bloque lo explique en pantalla.
+  if (resultados.every(r => r.status === 'rejected')) throw resultados[0].reason;
+
+  return Object.fromEntries(canales.map((c, i) => [
+    c, resultados[i].status === 'fulfilled' ? (resultados[i].value?.meta?.total ?? 0) : 0,
+  ]));
 }
 
 function renderCanales(data) {

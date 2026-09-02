@@ -6,6 +6,12 @@
 
 const state = { page: 1, limit: 15, filtros: {}, editandoId: null, resetUserId: null };
 
+// KA-F-08: crear, editar, restablecer contraseña y activar/desactivar son
+// admin-only en el backend. El supervisor llega a esta pantalla (GET /usuarios
+// es admin/supervisor) y hasta ahora veía los cuatro botones, que fallaban
+// siempre con 403. Conserva la lectura; las acciones no se le muestran.
+const PUEDE_ESCRIBIR = permisos.puedeAccion('usuariosEscribir');
+
 // KA-F-01: el markup traía las casillas de rol escritas a mano y le faltaban
 // `promotor` y `agente`. Como al guardar el backend REEMPLAZA el conjunto
 // completo de roles, editarle el teléfono a un ['operador','promotor'] lo
@@ -43,7 +49,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.filtros.activo = e.target.value; state.page = 1; cargarUsuarios();
   });
   document.getElementById('btn-limpiar')?.addEventListener('click', limpiarFiltros);
-  document.getElementById('btn-nuevo-usuario')?.addEventListener('click', abrirModalCrear);
+  const btnNuevo = document.getElementById('btn-nuevo-usuario');
+  if (PUEDE_ESCRIBIR) btnNuevo?.addEventListener('click', abrirModalCrear);
+  else if (btnNuevo) btnNuevo.style.display = 'none';
   document.getElementById('btn-guardar-usuario')?.addEventListener('click', guardarUsuario);
   document.getElementById('btn-confirmar-reset')?.addEventListener('click', confirmarReset);
 });
@@ -102,13 +110,13 @@ function renderFilas(rows) {
         <td>${estado}</td>
         <td style="color:#94a3b8;font-size:12px">${fmt.fecha(u.created_at)}</td>
         <td style="text-align:center">
-          <div style="display:flex;gap:6px;justify-content:center">
+          ${PUEDE_ESCRIBIR ? `<div style="display:flex;gap:6px;justify-content:center">
             <button class="btn btn-ghost btn-sm" onclick="abrirModalEditar('${u.id}')" title="Editar">✏️</button>
             <button class="btn btn-ghost btn-sm" onclick="abrirModalReset('${u.id}','${nombreJs}')  " title="Restablecer contraseña">🔑</button>
             <button class="btn btn-ghost btn-sm" onclick="toggleActivo('${u.id}',${u.activo})" title="${u.activo ? 'Desactivar' : 'Activar'}">
               ${u.activo ? '🔴' : '🟢'}
             </button>
-          </div>
+          </div>` : '<span style="color:#cbd5e1">—</span>'}
         </td>
       </tr>`;
   }).join('');

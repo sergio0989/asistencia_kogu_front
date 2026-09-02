@@ -126,7 +126,7 @@
         <p>Abogados y proveedores de asistencia — expediente, cobertura y carga operativa</p>
       </div>
       <div style="display:flex;gap:10px;align-items:center">
-        <button class="btn btn-primary" onclick="abrirPanel()">+ Nuevo proveedor</button>
+        <button class="btn btn-primary" id="btn-nuevo-proveedor" onclick="abrirPanel()">+ Nuevo proveedor</button>
       </div>
     </div>
 
@@ -455,6 +455,7 @@
 <script src="/js/utils/toast.js?v=1.3"></script>
 <script src="/js/utils/descargas.js?v=1.3"></script>
 <script src="/js/utils/table.js?v=1.3"></script>
+<script src="/js/utils/permisos.js?v=1.3"></script>
 <script src="/js/components/sidebar.js?v=1.3"></script>
 <script src="/js/utils/auth.guard.js?v=1.3"></script>
 <script>
@@ -469,6 +470,10 @@ const state = {
   limit:           15,
 };
 
+// KA-F-08: POST/PATCH de proveedores es admin/supervisor. El operador puede
+// leer el catálogo, así que conserva la ficha, pero no el alta ni el guardado.
+const PUEDE_ESCRIBIR = permisos.puedeAccion('proveedoresEscribir');
+
 const pv = {
   id:        null,
   tiposData: [],
@@ -477,6 +482,10 @@ const pv = {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  if (!PUEDE_ESCRIBIR) {
+    ['btn-nuevo-proveedor', 'btn-guardar-panel']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+  }
   await cargarProveedores();
 
   let timer;
