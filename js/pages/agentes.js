@@ -5,7 +5,7 @@
  * catalogos.service.js, fmt, toast, modal, table, formErrors
  */
 
-const state = { page: 1, limit: 15, filtros: {}, editandoId: null, docsAgenteId: null };
+const state = { page: 1, limit: 15, filtros: {}, editandoId: null, docsAgenteId: null, filas: [] };
 
 const MAPA = {
   nombre: 'a-nombre', rfc: 'a-rfc', telefono: 'a-telefono', email: 'a-email',
@@ -45,6 +45,7 @@ async function cargarAgentes() {
     const result = await agentesService.listar({ ...state.filtros, page: state.page, limit: state.limit });
     const rows = result?.data || [];
     const meta = result?.meta || { total: rows.length, page: 1, limit: state.limit, pages: 1 };
+    state.filas = rows;          // el editar sale de aquí, no de otra descarga
     renderFilas(rows);
     document.getElementById('contador-agentes').textContent = `${meta.total} agente${meta.total !== 1 ? 's' : ''}`;
     table.renderPagination('#paginacion', meta, p => { state.page = p; cargarAgentes(); });
@@ -103,25 +104,33 @@ function abrirModalCrear() {
   modal.open('modal-agente');
 }
 
-async function abrirModalEditar(id) {
-  // Tomamos los datos de la fila actual (no hay GET /agentes/:id en el contrato P1).
-  const res = await agentesService.listar({ limit: 500 });
-  const a = (res?.data || []).find(x => x.id === id);
-  if (!a) { toast.error('Agente no encontrado'); return; }
-  state.editandoId = id;
-  limpiarForm();
-  document.getElementById('modal-agente-titulo').textContent = 'Editar agente';
-  document.getElementById('a-nombre').value          = a.nombre || '';
-  document.getElementById('a-rfc').value             = a.rfc || '';
-  document.getElementById('a-telefono').value        = a.telefono || '';
-  document.getElementById('a-email').value           = a.email || '';
-  document.getElementById('a-cedula-tipo').value     = a.cedula_tipo || '';
-  document.getElementById('a-cedula-numero').value   = a.cedula_numero || '';
-  document.getElementById('a-cedula-vigencia').value = (a.cedula_vigencia || '').slice(0, 10);
-  document.getElementById('a-activo').checked        = a.activo;
-  document.getElementById('grupo-activo').style.display = 'block';
-  if (a.promotoria_id) document.getElementById('a-promotoria').value = a.promotoria_id;
-  modal.open('modal-agente');
+function abrirModalEditar(id) {
+  // Bf-07: antes se volvía a bajar la tabla entera (limit:500) para encontrar
+  // una fila que ya estaba en pantalla — y con el tope de 100 del backend eso
+  // devolvía 422, así que el modal no abría. La fila ya está en `state.filas`.
+  const a = state.filas.find(x => x.id === id);
+  if (!a) { toast.error('Agente no encontrado; recarga la lista'); return; }
+  try {
+    state.editandoId = id;
+    limpiarForm();
+    document.getElementById('modal-agente-titulo').textContent = 'Editar agente';
+    document.getElementById('a-nombre').value          = a.nombre || '';
+    document.getElementById('a-rfc').value             = a.rfc || '';
+    document.getElementById('a-telefono').value        = a.telefono || '';
+    document.getElementById('a-email').value           = a.email || '';
+    document.getElementById('a-cedula-tipo').value     = a.cedula_tipo || '';
+    document.getElementById('a-cedula-numero').value   = a.cedula_numero || '';
+    document.getElementById('a-cedula-vigencia').value = (a.cedula_vigencia || '').slice(0, 10);
+    document.getElementById('a-activo').checked        = a.activo;
+    document.getElementById('grupo-activo').style.display = 'block';
+    if (a.promotoria_id) document.getElementById('a-promotoria').value = a.promotoria_id;
+    modal.open('modal-agente');
+  } catch (err) {
+    // Antes no había try/catch: cualquier fallo dejaba el modal a medio armar.
+    console.error('No se pudo abrir el editor de agente', err);
+    toast.error('No se pudo abrir el editor del agente');
+    state.editandoId = null;
+  }
 }
 
 async function guardarAgente() {

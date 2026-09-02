@@ -34,7 +34,7 @@ const MAPA = {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await Promise.all([cargarRamos(), cargarAgentes(), cargarPromotorias()]);
+  await Promise.all([cargarRamos(), montarPickerAgente(), cargarPromotorias()]);
 
   // Canal chips
   document.querySelectorAll('[data-canal]').forEach(chip => {
@@ -52,14 +52,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('o-ramo')?.addEventListener('change', e => { no.ramoId = e.target.value; });
 
-  // Búsqueda de cliente existente (debounced)
-  let timer;
-  document.getElementById('o-cliente-buscar')?.addEventListener('input', e => {
-    document.getElementById('o-cliente-id').value = '';   // cambió el texto → deselecciona
-    clearTimeout(timer);
-    const q = e.target.value.trim();
-    timer = setTimeout(() => buscarClientes(q), 300);
-  });
+  montarPickerCliente();
 
   document.getElementById('btn-siguiente')?.addEventListener('click', avanzarAPaso2);
   document.getElementById('btn-anterior')?.addEventListener('click', () => irAPaso(1));
@@ -82,16 +75,48 @@ async function cargarRamos() {
   } catch { toast.error('No se pudieron cargar los ramos'); }
 }
 
-async function cargarAgentes() {
+// Bf-07: agente y cliente dejan de volcarse/buscarse a mano y pasan al picker,
+// que trae debounce, paginación y errores visibles.
+let pkAgente  = null;
+let pkCliente = null;
+
+function montarPickerAgente() {
   if (!PUEDE_AGENTES) return;
-  try {
-    const res = await agentesService.listar({ limit: 200 });
-    const agentes = res?.data || [];
-    document.getElementById('o-agente').innerHTML =
-      '<option value="">— Sin asignar —</option>' +
-      agentes.map(a => `<option value="${fmt.esc(a.id)}">${fmt.esc(a.nombre)}</option>`).join('');
-    document.getElementById('grupo-agente').style.display = '';
-  } catch { /* el API decide el scope */ }
+  pkAgente = picker.bind({
+    inputId:     'o-agente-label', hiddenId: 'o-agente',
+    botonId:     'o-agente-btn',   limpiarId: 'o-agente-clear',
+    titulo:      'Seleccionar agente',
+    placeholder: 'Nombre, RFC o correo…',
+    vacio:       'Escribe para buscar agentes.',
+    buscar:      (q, page) => agentesService.listar({ buscar: q, page, limit: 20 }),
+    item:        a => ({ id: a.id, titulo: a.nombre, sub: a.email || a.rfc || '—' }),
+  });
+  document.getElementById('grupo-agente').style.display = '';
+}
+
+function montarPickerCliente() {
+  pkCliente = picker.bind({
+    inputId:     'o-cliente-buscar', hiddenId: 'o-cliente-id',
+    botonId:     'o-cliente-btn',    limpiarId: 'o-cliente-clear',
+    titulo:      'Seleccionar cliente',
+    placeholder: 'Nombre, teléfono o RFC…',
+    vacio:       'Escribe para buscar en la cartera.',
+    buscar:      (q, page) => clientesService.listar({ buscar: q, page, limit: 20 }),
+    item:        c => ({
+      id:     c.id,
+      titulo: c.nombre,
+      sub:    `${c.telefono ? fmt.telefono(c.telefono) : 's/tel'} · ${c.estado || '—'}`,
+    }),
+    onSelect: () => {
+      // estático: confirmación fija, sin dato interpolado.
+      document.getElementById('o-cliente-resultados').innerHTML =
+        '<div style="color:#166534;font-size:12px;padding:6px 2px">✓ Cliente seleccionado</div>';
+    },
+  });
+
+  document.getElementById('o-cliente-clear')?.addEventListener('click', () => {
+    document.getElementById('o-cliente-resultados').innerHTML = '';
+  });
 }
 
 async function cargarPromotorias() {
@@ -115,33 +140,6 @@ function seleccionarModo(mode) {
   // La promotoría solo aplica al crear prospecto nuevo (y solo para roles elevados).
   const showProm = mode === 'prospecto' && PUEDE_AGENTES && no._tienePromotorias > 0;
   document.getElementById('grupo-promotoria').style.display = showProm ? '' : 'none';
-}
-
-async function buscarClientes(q) {
-  const cont = document.getElementById('o-cliente-resultados');
-  if (!q) { cont.innerHTML = ''; return; }
-  try {
-    const res = await clientesService.listar({ buscar: q, limit: 20 });
-    const rows = res?.data || [];
-    if (!rows.length) { cont.innerHTML = '<div style="color:#94a3b8;font-size:12px;padding:6px 2px">Sin coincidencias.</div>'; return; }
-    // c.id: UUID propio → onclick; nombre/tel escapados.
-    cont.innerHTML = rows.map(c => `
-      <div class="cliente-hit" data-id="${fmt.esc(c.id)}" data-nombre="${fmt.esc(c.nombre)}"
-           onclick="seleccionarCliente(this)">
-        <strong>${fmt.esc(c.nombre)}</strong>
-        <span style="color:#94a3b8;font-size:11px">
-          ${c.telefono ? '· ' + fmt.esc(fmt.telefono(c.telefono)) : ''}
-          ${c.estado ? '· ' + fmt.esc(c.estado) : ''}
-        </span>
-      </div>`).join('');
-  } catch { cont.innerHTML = '<div style="color:#dc2626;font-size:12px;padding:6px 2px">Error al buscar clientes.</div>'; }
-}
-
-function seleccionarCliente(el) {
-  document.getElementById('o-cliente-id').value = el.dataset.id;
-  document.getElementById('o-cliente-buscar').value = el.dataset.nombre;
-  document.getElementById('o-cliente-resultados').innerHTML =
-    `<div style="color:#166534;font-size:12px;padding:6px 2px">✓ Cliente seleccionado</div>`;
 }
 
 // ─── Navegación ─────────────────────────────────────────────────────────────
@@ -268,4 +266,3 @@ async function crearOportunidad() {
   }
 }
 
-window.seleccionarCliente = seleccionarCliente;

@@ -2,10 +2,15 @@
 /**
  * polizas.js — Cartera de pólizas (Promotoría P1).
  * Depende de: api.js, polizas.service.js, clientes.service.js, catalogos.service.js,
- *             fmt, toast, modal, table, formErrors
+ *             fmt, toast, modal, picker, table, formErrors
  */
 
 const state = { page: 1, limit: 15, filtros: {}, polizaNuevaId: null };
+
+// Picker de cliente (Bf-07): sustituye al <select> que bajaba la cartera
+// completa con limit:500 — el backend topa en 100, devolvía 422 y el select
+// quedaba vacío sin aviso.
+let pickerCliente = null;
 
 const MAPA = {
   cliente_id: 'p-cliente', aseguradora_id: 'p-aseguradora', ramo_id: 'p-ramo',
@@ -15,7 +20,22 @@ const MAPA = {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await Promise.all([cargarRamos(), cargarAseguradoras(), cargarClientesSelect()]);
+  pickerCliente = picker.bind({
+    inputId:     'p-cliente-label',
+    hiddenId:    'p-cliente',
+    botonId:     'p-cliente-btn',
+    titulo:      'Seleccionar cliente',
+    placeholder: 'Nombre, RFC o teléfono…',
+    vacio:       'Escribe para buscar en la cartera.',
+    buscar:      (q, page) => clientesService.listar({ buscar: q, page, limit: 20 }),
+    item:        c => ({
+      id:     c.id,
+      titulo: c.nombre,
+      sub:    `${c.rfc || 's/RFC'} · ${c.telefono ? fmt.telefono(c.telefono) : '—'}`,
+    }),
+  });
+
+  await Promise.all([cargarRamos(), cargarAseguradoras()]);
   await cargarPolizas();
 
   let timer;
@@ -57,7 +77,10 @@ async function cargarRamos() {
     const opts = ramos.map(r => `<option value="${fmt.esc(r.id)}">${fmt.esc(r.nombre)}</option>`).join('');
     document.getElementById('filtro-ramo').innerHTML = '<option value="">Todos los ramos</option>' + opts;
     document.getElementById('p-ramo').innerHTML = '<option value="">— Seleccionar —</option>' + opts;
-  } catch { /* silencioso */ }
+  } catch (err) {
+    console.error('No se pudieron cargar los ramos', err);
+    toast.error('No se pudieron cargar los ramos');
+  }
 }
 async function cargarAseguradoras() {
   try {
@@ -65,15 +88,10 @@ async function cargarAseguradoras() {
     const opts = emp.map(e => `<option value="${fmt.esc(e.id)}">${fmt.esc(e.razon_social || e.nombre_comercial)}</option>`).join('');
     document.getElementById('filtro-aseguradora').innerHTML = '<option value="">Todas las aseguradoras</option>' + opts;
     document.getElementById('p-aseguradora').innerHTML = '<option value="">— Seleccionar —</option>' + opts;
-  } catch { /* silencioso */ }
-}
-async function cargarClientesSelect() {
-  try {
-    const res = await clientesService.listar({ limit: 500 });
-    const cls = res?.data || [];
-    document.getElementById('p-cliente').innerHTML = '<option value="">— Seleccionar cliente —</option>' +
-      cls.map(c => `<option value="${fmt.esc(c.id)}">${fmt.esc(c.nombre)}</option>`).join('');
-  } catch { /* silencioso */ }
+  } catch (err) {
+    console.error('No se pudieron cargar las aseguradoras', err);
+    toast.error('No se pudieron cargar las aseguradoras');
+  }
 }
 
 // ─── Cargar lista ─────────────────────────────────────────────────────────────
@@ -116,11 +134,24 @@ function renderFilas(rows) {
 }
 
 // ─── Modal crear ──────────────────────────────────────────────────────────────
-function abrirModalCrear(clienteId) {
+async function abrirModalCrear(clienteId) {
   limpiarForm();
-  if (clienteId) document.getElementById('p-cliente').value = clienteId;
   agregarAsistRow();
   modal.open('modal-poliza');
+
+  // Viene prellenado desde la ficha del cliente: hay que resolver su nombre
+  // para el campo visible, porque el picker ya no tiene la lista en memoria.
+  if (clienteId) {
+    pickerCliente?.set(clienteId, '');
+    try {
+      const c = await clientesService.obtener(clienteId);
+      pickerCliente?.set(clienteId, c?.nombre || '');
+    } catch (err) {
+      console.error('No se pudo resolver el cliente prellenado', err);
+      toast.warning('No se pudo cargar el cliente; selecciónalo manualmente');
+      pickerCliente?.limpiar();
+    }
+  }
 }
 
 function agregarAsistRow(tipo = '', eventos = '') {
@@ -212,7 +243,7 @@ function limpiarForm() {
   formErrors.limpiar();
   ['p-numero', 'p-producto', 'p-vig-inicio', 'p-vig-fin', 'p-prima', 'p-comision', 'p-notas']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  document.getElementById('p-cliente').value = '';
+  pickerCliente?.limpiar();
   document.getElementById('p-aseguradora').value = '';
   document.getElementById('p-ramo').value = '';
   document.getElementById('p-forma-pago').value = 'anual';

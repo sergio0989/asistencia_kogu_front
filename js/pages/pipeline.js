@@ -21,7 +21,7 @@ const PUEDE_AGENTES = authService.hasAnyRole('admin', 'supervisor', 'operador', 
 const state = { filtros: {} };
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await Promise.all([cargarRamos(), cargarAgentes()]);
+  await Promise.all([cargarRamos(), montarPickerAgente()]);
   await Promise.all([cargarKpis(), cargarPipeline()]);
 
   let timer;
@@ -52,19 +52,28 @@ async function cargarRamos() {
     document.getElementById('filtro-ramo').innerHTML =
       '<option value="">Todos los ramos</option>' +
       ramos.map(r => `<option value="${fmt.esc(r.id)}">${fmt.esc(r.nombre)}</option>`).join('');
-  } catch { /* silencioso */ }
+  } catch (err) {
+    console.error('No se pudieron cargar los ramos', err);
+    toast.error('No se pudieron cargar los ramos');
+  }
 }
 
-async function cargarAgentes() {
+// Bf-07: el filtro de agente pasa de <select> volcado (limit:200) a picker con
+// búsqueda contra el servidor.
+let pkFiltroAgente = null;
+
+function montarPickerAgente() {
   if (!PUEDE_AGENTES) return;   // agente puro: el API fuerza su cartera
-  try {
-    const res = await agentesService.listar({ limit: 200 });
-    const agentes = res?.data || [];
-    const filtro = document.getElementById('filtro-agente');
-    filtro.innerHTML = '<option value="">Todos los agentes</option>' +
-      agentes.map(a => `<option value="${fmt.esc(a.id)}">${fmt.esc(a.nombre)}</option>`).join('');
-    filtro.style.display = '';
-  } catch { /* si no hay acceso, sin selector */ }
+  pkFiltroAgente = picker.bind({
+    inputId:     'filtro-agente-label', hiddenId: 'filtro-agente',
+    botonId:     'filtro-agente-btn',   limpiarId: 'filtro-agente-clear',
+    titulo:      'Seleccionar agente',
+    placeholder: 'Nombre, RFC o correo…',
+    vacio:       'Escribe para buscar agentes.',
+    buscar:      (q, page) => agentesService.listar({ buscar: q, page, limit: 20 }),
+    item:        a => ({ id: a.id, titulo: a.nombre, sub: a.email || a.rfc || '—' }),
+  });
+  document.getElementById('grupo-filtro-agente').style.display = '';
 }
 
 // ─── KPIs (snapshot global del pipeline, independiente de los filtros) ───────
@@ -175,7 +184,8 @@ function toggleCerradas() {
 
 function limpiarFiltros() {
   state.filtros = {};
-  ['filtro-buscar', 'filtro-ramo', 'filtro-agente', 'filtro-canal']
+  pkFiltroAgente?.set('', '');
+  ['filtro-buscar', 'filtro-ramo', 'filtro-canal']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   cargarPipeline();
 }
