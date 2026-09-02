@@ -16,6 +16,7 @@ Uso:
     python3 scripts/versionar-assets.py 1.3 --dry    # solo informa
 """
 import re
+import pathlib
 import sys
 import glob
 
@@ -69,9 +70,31 @@ def procesar(version: str, dry: bool = False):
     return total
 
 
+# El badge del pie de index.html tiene que llevar la MISMA versión que los
+# assets: es lo que permite ver de un vistazo si un despliegue tomó. Cuando era
+# un paso manual aparte se olvidó dos veces seguidas (v1.3 y v1.4), así que va
+# aquí dentro y deja de depender de que alguien se acuerde.
+RE_BADGE = re.compile(r'v\d+\.\d+(?= · Promotorí)')
+
+
+def actualizar_badge(version, dry=False):
+    idx = pathlib.Path('index.html')
+    original = idx.read_text(encoding='utf-8')
+    nuevo, n = RE_BADGE.subn(f'v{version}', original)
+    if n == 0:
+        print('  ⚠️  badge NO encontrado en index.html — revísalo a mano')
+        return 0
+    if not dry and nuevo != original:
+        idx.write_text(nuevo, encoding='utf-8')
+    print(f'  badge de index.html → v{version}')
+    return n
+
+
 if __name__ == '__main__':
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     if not args:
         print('Uso: python3 scripts/versionar-assets.py <version> [--dry]')
         sys.exit(1)
-    procesar(args[0], dry='--dry' in sys.argv)
+    dry = '--dry' in sys.argv
+    procesar(args[0], dry=dry)
+    actualizar_badge(args[0], dry=dry)
