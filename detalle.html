@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Expediente — Kogu Asistencias</title>
-  <link rel="stylesheet" href="/styles/styles.css?v=1.5">
+  <link rel="stylesheet" href="/styles/styles.css?v=1.6">
   <style>
     /* ── Layout split ── */
     .detalle-grid{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start}
@@ -369,28 +369,32 @@
       <button class="modal-close" onclick="modal.close('modal-estatus')">&times;</button>
     </div>
     <div class="modal-body">
-      <p style="font-size:13px;color:#64748b;margin-bottom:14px">
-        Selecciona el nuevo estatus operativo:
-      </p>
-      <div class="estatus-grid">
-        <button class="estatus-btn" data-nuevo-estatus="abierto">📂 Abierto</button>
-        <button class="estatus-btn" data-nuevo-estatus="asignado">👤 Asignado</button>
-        <button class="estatus-btn" data-nuevo-estatus="en_proceso">⚙️ En proceso</button>
-        <button class="estatus-btn" data-nuevo-estatus="pendiente_doc">📄 Pend. documentos</button>
-        <button class="estatus-btn" data-nuevo-estatus="pendiente_pago">💳 Pend. pago</button>
-        <button class="estatus-btn" data-nuevo-estatus="archivado">🗃️ Archivado</button>
+      <!-- Paso 1: destinos. Los botones NO se escriben aquí: salen de
+           `transiciones_disponibles`, que el API acota al estatus actual y al
+           tipo del expediente (Bf-11 / B2-10). -->
+      <div id="paso-destino">
+        <p style="font-size:13px;color:#64748b;margin-bottom:14px">
+          Selecciona el nuevo estatus operativo:
+        </p>
+        <div class="estatus-grid" id="acciones-estatus"></div>
       </div>
-      <div style="margin-top:16px">
-        <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:6px">
-          Comentario (opcional)
-        </label>
-        <textarea id="comentario-estatus" rows="2"
-          style="width:100%;resize:none;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;box-sizing:border-box"
-          placeholder="Motivo del cambio…"></textarea>
+
+      <!-- Paso 2: motivo o comentario del destino elegido. -->
+      <div id="paso-motivo" style="display:none">
+        <p style="font-size:13px;color:#64748b;margin-bottom:14px">
+          Mover el expediente a <strong id="destino-nombre"></strong>.
+        </p>
+        <label id="label-comentario"
+          style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:6px"></label>
+        <textarea id="comentario-estatus" rows="3" maxlength="1000"
+          style="width:100%;resize:none;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;box-sizing:border-box"></textarea>
+        <div id="error-comentario" style="color:#dc2626;font-size:11px;margin-top:4px;display:none"></div>
       </div>
     </div>
     <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:14px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" id="btn-volver-destino" style="display:none">← Volver</button>
       <button class="btn btn-ghost" onclick="modal.close('modal-estatus')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-confirmar-estatus" style="display:none">Confirmar</button>
     </div>
   </div>
 </div>
@@ -622,19 +626,19 @@
 <!-- ══════════════════════════════════════════════════════════════════════════
      SCRIPTS
 ══════════════════════════════════════════════════════════════════════════ -->
-<script src="/js/config.js?v=1.5"></script>
-<script src="/js/services/api.js?v=1.5"></script>
-<script src="/js/services/auth.service.js?v=1.5"></script>
-<script src="/js/services/asistencias.service.js?v=1.5"></script>
-<script src="/js/services/catalogos.service.js?v=1.5"></script>
-<script src="/js/services/proveedores.service.js?v=1.5"></script>
-<script src="/js/utils/format.js?v=1.5"></script>
-<script src="/js/utils/toast.js?v=1.5"></script>
-<script src="/js/utils/descargas.js?v=1.5"></script>
-<script src="/js/utils/modal.js?v=1.5"></script>
-<script src="/js/utils/permisos.js?v=1.5"></script>
-<script src="/js/components/sidebar.js?v=1.5"></script>
-<script src="/js/utils/auth.guard.js?v=1.5"></script>
-<script src="/js/pages/detalle.js?v=1.5"></script>
+<script src="/js/config.js?v=1.6"></script>
+<script src="/js/services/api.js?v=1.6"></script>
+<script src="/js/services/auth.service.js?v=1.6"></script>
+<script src="/js/services/asistencias.service.js?v=1.6"></script>
+<script src="/js/services/catalogos.service.js?v=1.6"></script>
+<script src="/js/services/proveedores.service.js?v=1.6"></script>
+<script src="/js/utils/format.js?v=1.6"></script>
+<script src="/js/utils/toast.js?v=1.6"></script>
+<script src="/js/utils/descargas.js?v=1.6"></script>
+<script src="/js/utils/modal.js?v=1.6"></script>
+<script src="/js/utils/permisos.js?v=1.6"></script>
+<script src="/js/components/sidebar.js?v=1.6"></script>
+<script src="/js/utils/auth.guard.js?v=1.6"></script>
+<script src="/js/pages/detalle.js?v=1.6"></script>
 </body>
 </html>
