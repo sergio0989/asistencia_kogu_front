@@ -122,6 +122,26 @@ const catalogosService = {
     return api.get('/catalogos/roles');
   },
 
+  // ── PLAZAS (Bf-12) ───────────────────────────────────────────────────────
+  //
+  // Catálogo propio de la promotoría (no de la aseguradora): es lo que permite
+  // preguntar "¿cuánto produjo la plaza Sur?" sumando todas las compañías.
+  // El backend acota la lectura a la promotoría de quien pregunta.
+
+  /** Plazas. Sin `activo` devuelve todas (activas e inactivas). */
+  async getPlazas({ activo } = {}) {
+    const qs = activo === undefined ? '' : `?activo=${activo}`;
+    return api.get(`/catalogos/plazas${qs}`);
+  },
+
+  async crearPlaza(data) {
+    return api.post('/catalogos/plazas', data);
+  },
+
+  async actualizarPlaza(id, data) {
+    return api.patch(`/catalogos/plazas/${id}`, data);
+  },
+
   /** Usos de un ramo (B2-06). Hoy solo AUT tiene; otros ramos devuelven []. */
   async getUsos(ramo_id) {
     return api.get(`/catalogos/usos?ramo_id=${encodeURIComponent(ramo_id)}`);

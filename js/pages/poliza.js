@@ -70,6 +70,16 @@ function renderDatos(p) {
     f('Teléfono cliente', p.cliente_telefono ? fmt.esc(fmt.telefono(p.cliente_telefono)) : '—') +
     f('Agente', fmt.esc(p.agente_nombre || '—')) +
     f('Sub-agente', fmt.esc(p.subagente_nombre || '—')) +
+    // B2-11: la clave con la que se VENDIÓ, guardada en la póliza. Sin clave va
+    // "—", nunca vacío ni "null": una póliza vieja o de captura de oficina
+    // puede no tenerla y eso no es un error.
+    f('Clave del agente', p.agente_clave
+      ? `<span style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-weight:700">${fmt.esc(p.agente_clave)}</span>`
+        + (p.plaza_nombre ? ` <span style="color:#64748b">· ${fmt.esc(p.plaza_nombre)}</span>` : '')
+        + (p.agente_clave_plaza_aseguradora
+            ? `<div style="font-size:11px;color:#94a3b8">En la aseguradora: ${fmt.esc(p.agente_clave_plaza_aseguradora)}</div>`
+            : '')
+      : '—') +
     f('Producto', p.producto ? fmt.esc(p.producto) : '—') +
     f('Uso', fmt.esc(p.uso_nombre || '—')) +
     f('Fecha de venta', p.fecha_venta ? fmt.fecha(p.fecha_venta) : '—') +
@@ -237,6 +247,7 @@ async function guardarEditar() {
 function abrirRenovar() {
   if (!poliza) return;
   formErrors.limpiar();
+  cargarClavesRenovacion();
   document.getElementById('ren-anterior').textContent = poliza.numero_poliza || '';
   document.getElementById('r-numero').value = (poliza.numero_poliza || '') + '-R';
   document.getElementById('r-vig-inicio').value = (poliza.vigencia_fin || '').slice(0, 10);
@@ -245,6 +256,41 @@ function abrirRenovar() {
   document.getElementById('r-forma-pago').value = '';
   modal.open('modal-renovar');
 }
+/**
+ * Claves vivas del titular de ESTA póliza con SU aseguradora.
+ *
+ * Una renovación es una venta nueva: el backend vuelve a resolver la clave y
+ * responde 422 si el titular tiene varias y no se dice cuál. Sin este selector
+ * la renovación quedaría sin salida — el mismo agujero que el alta resuelve con
+ * `p-clave-agente`. Aquí el titular y la aseguradora ya están fijados por la
+ * póliza, así que es una sola carga sin dependencias.
+ */
+async function cargarClavesRenovacion() {
+  const grupo  = document.getElementById('grupo-r-clave-agente');
+  const select = document.getElementById('r-clave-agente');
+  if (!grupo || !select) return;
+
+  grupo.style.display = 'none';
+  select.innerHTML = '<option value="">—</option>';
+  select.value = '';
+  if (!poliza?.agente_id || !poliza?.aseguradora_id) return;
+
+  try {
+    const claves = await agentesService.getClaves(poliza.agente_id, {
+      aseguradora_id: poliza.aseguradora_id, activo: true,
+    }) || [];
+    // Con una sola (o ninguna) el backend resuelve solo: no se pregunta nada.
+    if (claves.length < 2) return;
+
+    select.innerHTML = '<option value="">— Elige la clave —</option>' +
+      claves.map(c => `<option value="${fmt.esc(c.id)}">${fmt.esc(`${c.plaza_nombre || 'Sin plaza'} — ${c.clave}`)}</option>`).join('');
+    grupo.style.display = '';
+  } catch (err) {
+    // No se bloquea la renovación: si esto falla, el backend dirá lo suyo.
+    console.error('No se pudieron cargar las claves para la renovación', err);
+  }
+}
+
 async function confirmarRenovar() {
   formErrors.limpiar();
   const numero_poliza = document.getElementById('r-numero').value.trim();
@@ -256,6 +302,7 @@ async function confirmarRenovar() {
     vigencia_inicio: document.getElementById('r-vig-inicio').value || undefined,
     prima_total: document.getElementById('r-prima').value ? Number(document.getElementById('r-prima').value) : undefined,
     forma_pago: document.getElementById('r-forma-pago').value || undefined,
+    clave_agente_id: document.getElementById('r-clave-agente')?.value || undefined,
   };
   const btn = document.getElementById('btn-confirmar-renovar');
   btn.disabled = true; btn.textContent = 'Renovando…';
@@ -267,7 +314,7 @@ async function confirmarRenovar() {
     if (nuevaId) window.location.href = `/comercial/poliza.html?id=${nuevaId}`;
     else await cargar();
   } catch (err) {
-    if (!formErrors.aplicar(err, { numero_poliza: 'r-numero', vigencia_fin: 'r-vig-fin', vigencia_inicio: 'r-vig-inicio', prima_total: 'r-prima', forma_pago: 'r-forma-pago' })) {
+    if (!formErrors.aplicar(err, { numero_poliza: 'r-numero', vigencia_fin: 'r-vig-fin', vigencia_inicio: 'r-vig-inicio', prima_total: 'r-prima', forma_pago: 'r-forma-pago', clave_agente_id: 'r-clave-agente' })) {
       toast.error(err.message || 'Error al renovar la póliza');
     }
   } finally { btn.disabled = false; btn.textContent = 'Renovar'; }

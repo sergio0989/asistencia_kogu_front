@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Plazas — Kogu Asistencias</title>
+  <link rel="stylesheet" href="/styles/styles.css?v=1.7">
+  <style>
+    .filters-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+    .filters-bar input,.filters-bar select{height:36px;padding:0 12px;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;background:#fff}
+    .filters-bar input{min-width:240px}
+    .plaza-clave{display:inline-block;background:#f1f5f9;color:#475569;border-radius:6px;font-size:11px;font-weight:700;
+                 padding:3px 8px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.05em}
+    .fila-inactiva{opacity:.55}
+    .nota-box{background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:12px 14px;font-size:12px;color:#0369a1;margin-bottom:16px}
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar" id="sidebar-placeholder"></aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="eyebrow">Gestión</div>
+        <h1>Plazas</h1>
+        <p>Plazas de la promotoría — dimensión de las claves del agente</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button class="btn btn-primary" id="btn-nueva-plaza">➕ Nueva plaza</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <div class="nota-box">
+        La plaza es de la promotoría, no de la aseguradora. Un solo catálogo propio permite
+        preguntar «¿cuánto produjo la plaza Sur?» sumando todas las compañías; el nombre que
+        cada aseguradora le da a esa misma plaza se captura en la clave del agente.
+      </div>
+
+      <div class="filters-bar">
+        <input type="text" id="filtro-buscar" placeholder="🔍  Clave o nombre…">
+        <select id="filtro-activo">
+          <option value="">Todas</option>
+          <option value="true">Activas</option>
+          <option value="false">Inactivas</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" id="btn-limpiar">Limpiar</button>
+        <span id="contador-plazas" style="margin-left:auto;font-size:13px;color:#64748b"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table style="width:100%">
+          <thead><tr>
+            <th>Clave</th><th>Nombre</th>
+            <th style="text-align:center">Orden</th><th>Estado</th>
+            <th style="text-align:center">Acciones</th>
+          </tr></thead>
+          <tbody id="tabla-plazas-body"></tbody>
+        </table>
+      </div>
+      <div id="paginacion" style="display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:14px;font-size:13px"></div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL: Crear / Editar plaza -->
+<div class="modal-backdrop" id="modal-plaza" style="display:none">
+  <div class="modal-box" style="max-width:480px">
+    <div class="modal-header"><h3 class="modal-title" id="modal-plaza-titulo">Nueva plaza</h3>
+      <button class="modal-close" onclick="modal.close('modal-plaza')">&times;</button></div>
+    <div class="modal-body"><form id="form-plaza" autocomplete="off"><div class="form-grid">
+      <div class="form-group"><label>Clave <span style="color:#dc2626">*</span></label>
+        <input type="text" id="pz-clave" class="form-control" maxlength="20" placeholder="CDMX, SUR, MTY…">
+        <div style="font-size:11px;color:#94a3b8;margin-top:4px">Se guarda en mayúsculas.</div></div>
+      <div class="form-group"><label>Orden</label>
+        <input type="number" id="pz-orden" class="form-control" min="0" step="10" value="0"></div>
+      <div class="form-group form-group--full"><label>Nombre <span style="color:#dc2626">*</span></label>
+        <input type="text" id="pz-nombre" class="form-control" maxlength="100" placeholder="Ciudad de México"></div>
+      <!-- Igual que el alta de agentes: solo se muestra si hay más de una. -->
+      <div class="form-group form-group--full" id="grupo-pz-promotoria" style="display:none">
+        <label>Promotoría</label><select id="pz-promotoria" class="form-control"></select></div>
+      <div class="form-group form-group--full" id="grupo-pz-activo" style="display:none">
+        <label class="checkbox-item"><input type="checkbox" id="pz-activo" checked> Plaza activa</label>
+        <div style="font-size:11px;color:#94a3b8;margin-top:4px">
+          Desactivarla la retira de las altas nuevas; las claves ya registradas en ella se conservan.
+        </div></div>
+    </div></form></div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-plaza')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-plaza">Guardar</button></div>
+  </div>
+</div>
+
+<script src="/js/config.js?v=1.7"></script>
+<script src="/js/services/api.js?v=1.7"></script>
+<script src="/js/services/auth.service.js?v=1.7"></script>
+<script src="/js/services/catalogos.service.js?v=1.7"></script>
+<script src="/js/utils/format.js?v=1.7"></script>
+<script src="/js/utils/toast.js?v=1.7"></script>
+<script src="/js/utils/modal.js?v=1.7"></script>
+<script src="/js/utils/table.js?v=1.7"></script>
+<script src="/js/utils/formErrors.js?v=1.7"></script>
+<script src="/js/utils/permisos.js?v=1.7"></script>
+<script src="/js/components/sidebar.js?v=1.7"></script>
+<script src="/js/utils/auth.guard.js?v=1.7"></script>
+<script>
+'use strict';
+/**
+ * Plazas de la promotoría (Bf-12).
+ *
+ * Mismo molde que Empresas: listado con filtro y paginación en cliente (el
+ * endpoint devuelve el catálogo entero), alta, edición y baja lógica.
+ *
+ * Nace CON administración a propósito: `catalogo_ramos` se quedó sin pantalla y
+ * hoy nadie puede dar de alta un ramo sin entrar a la base. Este catálogo no
+ * repite ese hueco.
+ *
+ * La escritura sale de la matriz de permisos (`catalogosEscribir`), no de una
+ * lista de roles escrita aquí — ese fue el hallazgo KA-F-08.
+ */
+
+const state = { page: 1, limit: 15, filtros: {}, editandoId: null, filas: [] };
+
+const PUEDE_ESCRIBIR = permisos.puedeAccion('catalogosEscribir');
+
+const MAPA = { clave: 'pz-clave', nombre: 'pz-nombre', orden: 'pz-orden' };
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await cargarPromotorias();
+  await cargarPlazas();
+
+  let timer;
+  document.getElementById('filtro-buscar')?.addEventListener('input', e => {
+    clearTimeout(timer);
+    timer = setTimeout(() => { state.filtros.buscar = e.target.value.trim(); state.page = 1; cargarPlazas(); }, 350);
+  });
+  document.getElementById('filtro-activo')?.addEventListener('change', e => {
+    state.filtros.activo = e.target.value; state.page = 1; cargarPlazas();
+  });
+  document.getElementById('btn-limpiar')?.addEventListener('click', limpiarFiltros);
+
+  const btnNueva = document.getElementById('btn-nueva-plaza');
+  if (PUEDE_ESCRIBIR) btnNueva?.addEventListener('click', abrirModalCrear);
+  else if (btnNueva) btnNueva.style.display = 'none';
+  document.getElementById('btn-guardar-plaza')?.addEventListener('click', guardarPlaza);
+});
+
+// La plaza cuelga de una promotoría y el backend la exige explícita en el alta.
+// No sale de /auth/me: ese endpoint devuelve `promotoria_id` en null para admin
+// y supervisor (su alcance no es de promotoría). Se resuelve con el catálogo,
+// igual que hace el alta de agentes, y el select se esconde si solo hay una.
+async function cargarPromotorias() {
+  try {
+    const proms = await catalogosService.getPromotorias() || [];
+    document.getElementById('pz-promotoria').innerHTML =
+      proms.map(p => `<option value="${fmt.esc(p.id)}">${fmt.esc(p.nombre)}</option>`).join('');
+    document.getElementById('grupo-pz-promotoria').style.display = proms.length > 1 ? 'block' : 'none';
+  } catch (err) {
+    // GET /catalogos/promotorias es admin/supervisor: quien solo lee el catálogo
+    // no lo alcanza, y tampoco necesita el alta.
+    console.warn('No se pudo cargar el catálogo de promotorías', err);
+  }
+}
+
+// ─── Lista ────────────────────────────────────────────────────────────────────
+async function cargarPlazas() {
+  table.showSkeleton('#tabla-plazas-body', 5, 6);
+  try {
+    // Sin `activo`: llegan también las inactivas, que el filtro de arriba acota.
+    const todas = await catalogosService.getPlazas() || [];
+    state.filas = todas;
+
+    let rows = todas;
+    if (state.filtros.buscar) {
+      const q = state.filtros.buscar.toLowerCase();
+      rows = rows.filter(p =>
+        p.clave?.toLowerCase().includes(q) || p.nombre?.toLowerCase().includes(q));
+    }
+    if (state.filtros.activo !== undefined && state.filtros.activo !== '') {
+      rows = rows.filter(p => String(p.activo) === state.filtros.activo);
+    }
+
+    const total  = rows.length;
+    const offset = (state.page - 1) * state.limit;
+    const meta   = { total, page: state.page, limit: state.limit, pages: Math.ceil(total / state.limit) || 1 };
+
+    document.getElementById('contador-plazas').textContent = `${total} plaza${total !== 1 ? 's' : ''}`;
+    renderFilas(rows.slice(offset, offset + state.limit));
+    table.renderPagination('#paginacion', meta, p => { state.page = p; cargarPlazas(); });
+  } catch (err) {
+    console.error('Error al cargar plazas', err);
+    toast.error('Error al cargar las plazas');
+  }
+}
+
+function renderFilas(rows) {
+  const tbody = document.querySelector('#tabla-plazas-body');
+  if (!tbody) return;
+  if (!rows.length) {
+    // estático: estado vacío
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:40px;color:#94a3b8">
+      No se encontraron plazas.</td></tr>`;
+    return;
+  }
+  // p.id: UUID propio → onclick; demás datos escapados.
+  tbody.innerHTML = rows.map(p => `
+    <tr class="${p.activo ? '' : 'fila-inactiva'}">
+      <td><span class="plaza-clave">${fmt.esc(p.clave)}</span></td>
+      <td><strong>${fmt.esc(p.nombre)}</strong></td>
+      <td style="text-align:center;color:#64748b">${fmt.esc(p.orden ?? 0)}</td>
+      <td>${p.activo
+        ? '<span class="badge success">● Activa</span>'
+        : '<span class="badge" style="background:#f1f5f9;color:#94a3b8">● Inactiva</span>'}</td>
+      <td style="text-align:center">${PUEDE_ESCRIBIR
+        ? `<button class="btn btn-ghost btn-sm" onclick="abrirModalEditar('${p.id}')" title="Editar">✏️</button>`
+        : ''}</td>
+    </tr>`).join('');
+}
+
+// ─── Crear / editar ───────────────────────────────────────────────────────────
+function abrirModalCrear() {
+  state.editandoId = null;
+  limpiarForm();
+  document.getElementById('modal-plaza-titulo').textContent = 'Nueva plaza';
+  document.getElementById('grupo-pz-activo').style.display = 'none';
+  document.getElementById('pz-clave').disabled = false;
+  modal.open('modal-plaza');
+}
+
+function abrirModalEditar(id) {
+  // La fila ya está en memoria: no se vuelve a bajar el catálogo para editar.
+  const p = state.filas.find(x => x.id === id);
+  if (!p) { toast.error('Plaza no encontrada; recarga la lista'); return; }
+  state.editandoId = id;
+  limpiarForm();
+  document.getElementById('modal-plaza-titulo').textContent = 'Editar plaza';
+  document.getElementById('pz-clave').value  = p.clave || '';
+  document.getElementById('pz-nombre').value = p.nombre || '';
+  document.getElementById('pz-orden').value  = p.orden ?? 0;
+  document.getElementById('pz-activo').checked = !!p.activo;
+  document.getElementById('grupo-pz-activo').style.display = 'block';
+  modal.open('modal-plaza');
+}
+
+async function guardarPlaza() {
+  formErrors.limpiar();
+  const clave  = document.getElementById('pz-clave').value.trim();
+  const nombre = document.getElementById('pz-nombre').value.trim();
+  const ordenV = document.getElementById('pz-orden').value;
+
+  if (!clave)  { toast.warning('La clave es obligatoria'); return; }
+  if (!nombre) { toast.warning('El nombre es obligatorio'); return; }
+
+  const data = { clave, nombre, orden: ordenV === '' ? undefined : Number(ordenV) };
+
+  const btn = document.getElementById('btn-guardar-plaza');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    if (state.editandoId) {
+      data.activo = document.getElementById('pz-activo').checked;
+      await catalogosService.actualizarPlaza(state.editandoId, data);
+      toast.success('Plaza actualizada');
+    } else {
+      const promotoria_id = document.getElementById('pz-promotoria').value;
+      if (!promotoria_id) {
+        toast.error('No se pudo determinar la promotoría; recarga la pantalla');
+        return;
+      }
+      await catalogosService.crearPlaza({ ...data, promotoria_id });
+      toast.success('Plaza creada');
+    }
+    modal.close('modal-plaza');
+    await cargarPlazas();
+  } catch (err) {
+    if (!formErrors.aplicar(err, MAPA)) toast.error(err.message || 'Error al guardar la plaza');
+  } finally { btn.disabled = false; btn.textContent = 'Guardar'; }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function limpiarFiltros() {
+  state.filtros = {}; state.page = 1;
+  ['filtro-buscar', 'filtro-activo'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  cargarPlazas();
+}
+
+function limpiarForm() {
+  formErrors.limpiar();
+  document.getElementById('pz-clave').value  = '';
+  document.getElementById('pz-nombre').value = '';
+  document.getElementById('pz-orden').value  = '0';
+  document.getElementById('pz-activo').checked = true;
+}
+
+window.abrirModalEditar = abrirModalEditar;
+</script>
+</body>
+</html>
