@@ -39,6 +39,9 @@
     ['/catalogos/proveedores.html',        '⚖️ Proveedores',       'gestion',    M.proveedoresVer],
     ['/catalogos/empresas.html',           '🏢 Empresas',           'gestion',    M.catalogosVer],
     ['/catalogos/tipos-asistencia.html',   '🗂️ Tipos de servicio', 'gestion',    M.tiposVer],
+    // Bf-12: dimensión de las claves del agente; se mantiene desde la pantalla,
+    // no desde la base (a diferencia de catalogo_ramos).
+    ['/catalogos/plazas.html',             '📍 Plazas',             'gestion',    M.catalogosVer],
   ];
 
   function getRoles() {

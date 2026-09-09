@@ -5,7 +5,11 @@
  * catalogos.service.js, fmt, toast, modal, table, formErrors
  */
 
-const state = { page: 1, limit: 15, filtros: {}, editandoId: null, docsAgenteId: null, filas: [] };
+const state = {
+  page: 1, limit: 15, filtros: {}, editandoId: null, docsAgenteId: null, filas: [],
+  // Bf-12: panel de claves por aseguradora y plaza.
+  clavesAgenteId: null, clavesFilas: [], claveEditandoId: null, plazas: [], aseguradoras: [],
+};
 
 // Bf-10: POST y PATCH de agentes son admin/supervisor. El promotor y el agente
 // llegan a esta pantalla (GET /agentes los admite, acotados) pero no escriben:
@@ -17,6 +21,16 @@ const MAPA = {
   promotoria_id: 'a-promotoria', cedula_tipo: 'a-cedula-tipo',
   cedula_numero: 'a-cedula-numero', cedula_vigencia: 'a-cedula-vigencia',
   agente_padre_id: 'a-agente-padre',
+};
+
+// Bf-12: los campos del alta de clave viven en su propio modal.
+const MAPA_CLAVE = {
+  aseguradora_id: 'cl-aseguradora', plaza_id: 'cl-plaza', clave: 'cl-clave',
+  plaza_aseguradora: 'cl-plaza-aseguradora', fecha_alta: 'cl-fecha-alta', notas: 'cl-notas',
+};
+const MAPA_CLAVE_EDITAR = {
+  clave: 'ce-clave', plaza_aseguradora: 'ce-plaza-aseguradora',
+  fecha_alta: 'ce-fecha-alta', fecha_baja: 'ce-fecha-baja', notas: 'ce-notas',
 };
 
 let pickerPadre       = null;
@@ -43,6 +57,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   else if (btnNuevo) btnNuevo.style.display = 'none';
   document.getElementById('btn-guardar-agente')?.addEventListener('click', guardarAgente);
   document.getElementById('btn-subir-doc-agente')?.addEventListener('click', subirDocumento);
+  document.getElementById('btn-guardar-clave')?.addEventListener('click', guardarClave);
+  document.getElementById('btn-guardar-clave-editar')?.addEventListener('click', guardarClaveEditada);
+  document.getElementById('btn-baja-clave')?.addEventListener('click', pedirBaja);
 });
 
 async function cargarPromotorias() {
@@ -125,6 +142,12 @@ async function cargarAgentes() {
   }
 }
 
+// Nombre del agente dentro de un atributo onclick: se escapa la comilla y la
+// barra antes de pasar por fmt.esc, que cubre el HTML.
+function nombreJs(nombre) {
+  return fmt.esc(String(nombre || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+}
+
 // Estado de la cédula según su vigencia.
 function estadoCedula(fecha) {
   if (!fecha) return { label: '—', class: 'badge-secondary' };
@@ -163,7 +186,8 @@ function renderFilas(rows) {
         <td>${a.activo ? '<span><span class="status-dot dot-active"></span>Activo</span>' : '<span style="color:#94a3b8"><span class="status-dot dot-inactive"></span>Inactivo</span>'}</td>
         <td style="text-align:center">
           ${PUEDE_ESCRIBIR ? `<button class="btn btn-ghost btn-sm" onclick="abrirModalEditar('${a.id}')" title="Editar">✏️</button>` : ''}
-          <button class="btn btn-ghost btn-sm" onclick="abrirDocs('${a.id}','${fmt.esc(String(a.nombre||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"))}')" title="Documentos">📎</button>
+          <button class="btn btn-ghost btn-sm" onclick="abrirDocs('${a.id}','${nombreJs(a.nombre)}')" title="Documentos">📎</button>
+          <button class="btn btn-ghost btn-sm" onclick="abrirClaves('${a.id}','${nombreJs(a.nombre)}')" title="Claves por aseguradora">🔑</button>
         </td>
       </tr>`;
   }).join('');
@@ -284,6 +308,225 @@ async function subirDocumento() {
   finally { btn.disabled = false; btn.textContent = 'Subir documento'; }
 }
 
+// ─── Claves por aseguradora y plaza (Bf-12) ──────────────────────────────────
+//
+// Mismo molde que `abrirDocs`: panel por agente, cargado al abrir, con el alta
+// debajo de la lista. Tres reglas que la pantalla tiene que hacer evidentes:
+//
+//   · La baja es LÓGICA. El botón dice "Dar de baja" y pide fecha; la clave se
+//     sigue viendo, atenuada, porque las pólizas viejas apuntan a ella.
+//   · Al editar no se puede cambiar aseguradora ni plaza (ver `abrirClaveEditar`).
+//   · Un SUB-agente no lleva claves propias: vende con la de su titular, así que
+//     su panel explica eso en vez de mostrar una tabla vacía que parece un fallo.
+async function abrirClaves(id, nombre) {
+  state.clavesAgenteId  = id;
+  state.claveEditandoId = null;
+  document.getElementById('claves-agente-nombre').textContent = nombre;
+
+  const agente     = state.filas.find(x => x.id === id);
+  const esSubagente = !!agente?.agente_padre_id;
+
+  // El alta solo existe para quien puede escribir y para agentes titulares.
+  const alta = document.getElementById('claves-alta');
+  const btn  = document.getElementById('btn-guardar-clave');
+  const mostrarAlta = PUEDE_ESCRIBIR && !esSubagente;
+  alta.style.display = mostrarAlta ? '' : 'none';
+  btn.style.display  = mostrarAlta ? '' : 'none';
+
+  limpiarFormClave();
+  modal.open('modal-claves');
+
+  if (esSubagente) {
+    mostrarMensajeSubagente(agente?.padre_nombre);
+    return;
+  }
+
+  if (mostrarAlta) await cargarCatalogosClave();
+  await cargarClaves();
+}
+
+function mostrarMensajeSubagente(padreNombre) {
+  const cont = document.getElementById('claves-list');
+  const titular = padreNombre
+    ? `su agente titular, ${fmt.esc(padreNombre)}`
+    : 'su agente titular';
+  cont.innerHTML = `<div class="aviso-box">
+      Los sub-agentes venden con la clave de ${titular}.
+      Esta ficha no lleva claves propias.
+    </div>`;
+}
+
+// Aseguradoras y plazas del alta. Se piden una sola vez por sesión de pantalla.
+async function cargarCatalogosClave() {
+  try {
+    if (!state.aseguradoras.length) state.aseguradoras = await catalogosService.getEmpresas() || [];
+    if (!state.plazas.length)       state.plazas       = await catalogosService.getPlazas({ activo: true }) || [];
+  } catch (err) {
+    console.error('No se pudieron cargar los catálogos de la clave', err);
+    toast.error('No se pudieron cargar aseguradoras o plazas');
+    return;
+  }
+  document.getElementById('cl-aseguradora').innerHTML = '<option value="">— Seleccionar —</option>' +
+    state.aseguradoras.map(e => `<option value="${fmt.esc(e.id)}">${fmt.esc(e.nombre_comercial || e.razon_social)}</option>`).join('');
+  document.getElementById('cl-plaza').innerHTML = '<option value="">— Seleccionar —</option>' +
+    state.plazas.map(p => `<option value="${fmt.esc(p.id)}">${fmt.esc(p.nombre)}</option>`).join('');
+}
+
+async function cargarClaves() {
+  const cont = document.getElementById('claves-list');
+  cont.innerHTML = '<p style="color:#94a3b8;font-size:13px">Cargando claves…</p>';
+  try {
+    // Sin filtro `activo`: las dadas de baja se siguen mostrando, atenuadas.
+    const claves = await agentesService.getClaves(state.clavesAgenteId) || [];
+    state.clavesFilas = claves;
+    renderClaves(claves);
+  } catch (err) {
+    console.error('No se pudieron cargar las claves del agente', err);
+    cont.innerHTML = '<p style="color:#dc2626;font-size:13px">Error al cargar las claves.</p>';
+  }
+}
+
+function renderClaves(claves) {
+  const cont = document.getElementById('claves-list');
+  if (!claves.length) {
+    cont.innerHTML = '<p style="color:#94a3b8;font-size:13px">Sin claves registradas.</p>';
+    return;
+  }
+  // c.id: UUID propio → onclick; el resto del dato de API va escapado.
+  const filas = claves.map(c => `
+    <tr class="${c.activo ? '' : 'clave-baja'}">
+      <td>${fmt.esc(c.aseguradora_nombre || '—')}</td>
+      <td>${fmt.esc(c.plaza_nombre || '—')}</td>
+      <td class="clave-mono">${fmt.esc(c.clave)}</td>
+      <td style="color:#64748b">${c.plaza_aseguradora ? fmt.esc(c.plaza_aseguradora) : '—'}</td>
+      <td style="color:#64748b">${c.fecha_alta ? fmt.fecha(c.fecha_alta) : '—'}</td>
+      <td>${c.activo
+        ? '<span><span class="status-dot dot-active"></span>Activa</span>'
+        : `<span style="color:#94a3b8"><span class="status-dot dot-inactive"></span>Baja${c.fecha_baja ? ` ${fmt.fecha(c.fecha_baja)}` : ''}</span>`}</td>
+      <td style="text-align:center">${PUEDE_ESCRIBIR
+        ? `<button class="btn btn-ghost btn-sm" onclick="abrirClaveEditar('${c.id}')" title="Editar">✏️</button>`
+        : ''}</td>
+    </tr>`).join('');
+
+  cont.innerHTML = `<table class="claves-tabla">
+      <thead><tr>
+        <th>Aseguradora</th><th>Plaza</th><th>Clave</th><th>Nombre en la aseguradora</th>
+        <th>Alta</th><th>Estado</th><th></th>
+      </tr></thead>
+      <tbody>${filas}</tbody>
+    </table>`;
+}
+
+async function guardarClave() {
+  formErrors.limpiar();
+  const aseguradora_id = document.getElementById('cl-aseguradora').value;
+  const plaza_id       = document.getElementById('cl-plaza').value;
+  const clave          = document.getElementById('cl-clave').value.trim();
+
+  if (!aseguradora_id) { toast.warning('Selecciona la aseguradora'); return; }
+  if (!plaza_id)       { toast.warning('Selecciona la plaza'); return; }
+  if (!clave)          { toast.warning('La clave es obligatoria'); return; }
+
+  const data = {
+    aseguradora_id, plaza_id, clave,
+    plaza_aseguradora: document.getElementById('cl-plaza-aseguradora').value.trim() || undefined,
+    fecha_alta:        document.getElementById('cl-fecha-alta').value || undefined,
+    notas:             document.getElementById('cl-notas').value.trim() || undefined,
+  };
+
+  const btn = document.getElementById('btn-guardar-clave');
+  btn.disabled = true; btn.textContent = 'Registrando…';
+  try {
+    await agentesService.crearClave(state.clavesAgenteId, data);
+    toast.success('Clave registrada');
+    limpiarFormClave();
+    await cargarClaves();
+  } catch (err) {
+    // El 409 de choque contra otra clave viva NO trae campo: su mensaje ya dice
+    // cuál de los dos choques ocurrió (el triple o el valor en esa plaza), así
+    // que se muestra tal cual en vez de forzarlo sobre un input.
+    if (!formErrors.aplicar(err, MAPA_CLAVE)) toast.error(err.message || 'Error al registrar la clave');
+  } finally { btn.disabled = false; btn.textContent = 'Registrar clave'; }
+}
+
+// ─── Editar / dar de baja ────────────────────────────────────────────────────
+function abrirClaveEditar(claveId) {
+  const c = state.clavesFilas.find(x => x.id === claveId);
+  if (!c) { toast.error('Clave no encontrada; vuelve a abrir el panel'); return; }
+  formErrors.limpiar();
+  state.claveEditandoId = claveId;
+
+  // Aseguradora y plaza se muestran, pero deshabilitadas: el renglón no se
+  // mueve nunca de compañía ni de plaza, porque las pólizas que lo apuntan
+  // cambiarían de plaza hacia atrás.
+  document.getElementById('ce-aseguradora').value      = c.aseguradora_nombre || '—';
+  document.getElementById('ce-plaza').value            = c.plaza_nombre || '—';
+  document.getElementById('ce-clave').value            = c.clave || '';
+  document.getElementById('ce-plaza-aseguradora').value = c.plaza_aseguradora || '';
+  document.getElementById('ce-fecha-alta').value       = (c.fecha_alta || '').slice(0, 10);
+  document.getElementById('ce-fecha-baja').value       = (c.fecha_baja || '').slice(0, 10);
+  document.getElementById('ce-notas').value            = c.notas || '';
+
+  // Una clave ya dada de baja no se vuelve a dar de baja.
+  mostrarCamposBaja(!c.activo);
+  document.getElementById('btn-baja-clave').style.display = c.activo ? '' : 'none';
+
+  modal.open('modal-clave-editar');
+}
+
+function mostrarCamposBaja(on) {
+  document.getElementById('grupo-ce-fecha-baja').style.display = on ? '' : 'none';
+  document.getElementById('ce-aviso-baja').style.display       = on ? '' : 'none';
+}
+
+/** "Dar de baja" no borra: revela la fecha y deja que el usuario confirme. */
+function pedirBaja() {
+  mostrarCamposBaja(true);
+  const campo = document.getElementById('ce-fecha-baja');
+  if (!campo.value) campo.value = new Date().toISOString().slice(0, 10);
+  campo.focus();
+  toast.info('Indica la fecha de baja y guarda. La clave se conserva para las pólizas ya emitidas.');
+}
+
+async function guardarClaveEditada() {
+  formErrors.limpiar();
+  const c = state.clavesFilas.find(x => x.id === state.claveEditandoId);
+  if (!c) { toast.error('Clave no encontrada'); return; }
+
+  const clave      = document.getElementById('ce-clave').value.trim();
+  const fecha_baja = document.getElementById('ce-fecha-baja').value;
+  const dandoBaja  = c.activo && !!fecha_baja;
+
+  if (!clave) { toast.warning('La clave es obligatoria'); return; }
+
+  const data = {
+    clave,
+    plaza_aseguradora: document.getElementById('ce-plaza-aseguradora').value.trim() || null,
+    fecha_alta:        document.getElementById('ce-fecha-alta').value || null,
+    notas:             document.getElementById('ce-notas').value.trim() || null,
+  };
+  // La baja es lógica: se apaga `activo` y se sella la fecha. Nunca hay DELETE.
+  if (dandoBaja) { data.activo = false; data.fecha_baja = fecha_baja; }
+  else if (fecha_baja) { data.fecha_baja = fecha_baja; }
+
+  const btn = document.getElementById('btn-guardar-clave-editar');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    await agentesService.actualizarClave(state.clavesAgenteId, state.claveEditandoId, data);
+    toast.success(dandoBaja ? 'Clave dada de baja' : 'Clave actualizada');
+    modal.close('modal-clave-editar');
+    await cargarClaves();
+  } catch (err) {
+    if (!formErrors.aplicar(err, MAPA_CLAVE_EDITAR)) toast.error(err.message || 'Error al guardar la clave');
+  } finally { btn.disabled = false; btn.textContent = 'Guardar'; }
+}
+
+function limpiarFormClave() {
+  formErrors.limpiar();
+  ['cl-aseguradora', 'cl-plaza', 'cl-clave', 'cl-plaza-aseguradora', 'cl-fecha-alta', 'cl-notas']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function limpiarFiltros() {
   state.filtros = {}; state.page = 1;
@@ -300,5 +543,7 @@ function limpiarForm() {
   pickerPadre?.set('', '');
 }
 
-window.abrirModalEditar = abrirModalEditar;
-window.abrirDocs        = abrirDocs;
+window.abrirModalEditar  = abrirModalEditar;
+window.abrirDocs         = abrirDocs;
+window.abrirClaves       = abrirClaves;
+window.abrirClaveEditar  = abrirClaveEditar;

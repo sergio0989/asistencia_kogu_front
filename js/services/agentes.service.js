@@ -22,6 +22,28 @@ const agentesService = {
     return api.patch(`/agentes/${id}`, data);
   },
 
+  // ── Claves por aseguradora y plaza (Bf-12 / B2-11) ───────────────────────
+  //
+  // La clave del agente con cada compañía, que además cambia según la plaza.
+  // No hay DELETE: la baja es lógica (PATCH { activo:false, fecha_baja }),
+  // porque las pólizas ya emitidas apuntan a ese renglón.
+
+  async getClaves(id, { aseguradora_id = '', activo } = {}) {
+    const qs = new URLSearchParams();
+    if (aseguradora_id)      qs.set('aseguradora_id', aseguradora_id);
+    if (activo !== undefined) qs.set('activo', activo);
+    const q = qs.toString();
+    return api.get(`/agentes/${id}/claves${q ? '?' + q : ''}`);
+  },
+
+  async crearClave(id, data) {
+    return api.post(`/agentes/${id}/claves`, data);
+  },
+
+  async actualizarClave(id, claveId, data) {
+    return api.patch(`/agentes/${id}/claves/${claveId}`, data);
+  },
+
   async getDocumentos(id) {
     return api.get(`/agentes/${id}/documentos`);
   },

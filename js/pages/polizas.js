@@ -25,7 +25,15 @@ const MAPA = {
   // B2-06
   subagente_id: 'p-subagente', uso_id: 'p-uso', fecha_venta: 'p-fecha-venta',
   prima_neta: 'p-prima-neta', comision_subagente_pct: 'p-comision-sub',
+  // B2-11. Sin esta línea, el 422 de "indica cuál clave aplica" cae en un toast
+  // genérico justo en el caso donde el usuario necesita saber dónde mirar.
+  clave_agente_id: 'p-clave-agente',
 };
+
+// Secuenciación de la carga de claves: depende de dos campos y el usuario puede
+// cambiarlos seguidos, así que solo pinta la última petición (mismo criterio que
+// picker.js, KA-F-13).
+let tokenClaves = 0;
 
 document.addEventListener('DOMContentLoaded', async () => {
   pickerCliente = picker.bind({
@@ -48,7 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   perfil = authService.perfilComercial();
 
   montarPickersAgente();
-  await Promise.all([cargarRamos(), cargarAseguradoras()]);
+  await Promise.all([cargarRamos(), cargarAseguradoras(), cargarPlazasFiltro()]);
   await cargarPolizas();
 
   let timer;
@@ -63,6 +71,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('filtro-subagente')?.addEventListener('change', aplicarFiltros);
   document.getElementById('filtro-uso')?.addEventListener('change', aplicarFiltros);
   document.getElementById('p-ramo')?.addEventListener('change', e => cargarUsos(e.target.value));
+  // La clave depende de la aseguradora Y del agente titular: se recarga con
+  // cualquiera de los dos. El hidden del picker de agente emite `change`.
+  document.getElementById('p-aseguradora')?.addEventListener('change', cargarClavesAgente);
+  document.getElementById('p-agente')?.addEventListener('change', cargarClavesAgente);
+  document.getElementById('filtro-plaza')?.addEventListener('change', aplicarFiltros);
   document.getElementById('filtro-venc-desde')?.addEventListener('change', aplicarFiltros);
   document.getElementById('filtro-venc-hasta')?.addEventListener('change', aplicarFiltros);
   document.getElementById('btn-limpiar')?.addEventListener('click', limpiarFiltros);
@@ -84,6 +97,7 @@ function aplicarFiltros() {
   state.filtros.aseguradora_id = document.getElementById('filtro-aseguradora').value;
   state.filtros.subagente_id   = document.getElementById('filtro-subagente').value;
   state.filtros.uso_id         = document.getElementById('filtro-uso').value;
+  state.filtros.plaza_id       = document.getElementById('filtro-plaza').value;
   state.filtros.vigencia_fin_desde = document.getElementById('filtro-venc-desde').value;
   state.filtros.vigencia_fin_hasta = document.getElementById('filtro-venc-hasta').value;
   state.page = 1; cargarPolizas();
@@ -249,6 +263,153 @@ async function cargarUsos(ramoId) {
   }
 }
 
+// ─── Clave del agente por aseguradora y plaza (Bf-12 / B2-11) ────────────────
+//
+// Mismo patrón que `cargarUsos`, con una diferencia que es toda la dificultad:
+// depende de DOS campos, la aseguradora y el AGENTE TITULAR. La clave es
+// siempre del titular — el sub-agente vende con la de su padre y no tiene
+// propia—, así que quien captura como sub-agente no ve picker de agente y su
+// titular sale del perfil de sesión.
+
+/** El titular con el que se resuelve la clave, según quién esté capturando. */
+function titularActual() {
+  const u = authService.getUser() || {};
+  if (perfil === 'subagente')   return u.agente_padre_id || '';
+  if (perfil === 'agente_raiz') return u.agente_id || '';
+  return document.getElementById('p-agente')?.value || '';   // elevado: el que eligió
+}
+
+/** Nombre del titular, para el aviso de "no tiene clave". */
+function titularNombre() {
+  const u = authService.getUser() || {};
+  if (perfil === 'subagente')   return u.padre_nombre || 'Tu agente titular';
+  if (perfil === 'agente_raiz') return u.nombre || 'El agente';
+  return document.getElementById('p-agente-label')?.value || 'El agente';
+}
+
+function aseguradoraNombre() {
+  const sel = document.getElementById('p-aseguradora');
+  const nombre = sel?.selectedOptions?.[0]?.textContent?.trim();
+  // Las razones sociales acaban en "S.A. de C.V." y el aviso cierra con punto:
+  // sin esto sale "…con AXA Seguros S.A. de C.V..".
+  return nombre ? nombre.replace(/\.+$/, '') : 'esta aseguradora';
+}
+
+function setClaveHint(texto) {
+  const hint = document.getElementById('p-clave-agente-hint');
+  if (hint) hint.textContent = texto || '';
+}
+
+/**
+ * Aviso de "sin clave". Mismo mecanismo que `mostrarAvisoAsignacion`, en su
+ * propia caja: el sub-agente puede necesitar los dos avisos a la vez y
+ * compartir nodo los haría pisarse.
+ */
+function mostrarAvisoClave(texto) {
+  const caja = document.getElementById('p-aviso-clave');
+  const txt  = document.getElementById('p-aviso-clave-txt');
+  if (!caja || !txt) return;
+  if (!texto) { caja.style.display = 'none'; txt.textContent = ''; return; }
+  txt.textContent = texto;
+  caja.style.display = '';
+}
+
+async function cargarClavesAgente() {
+  const select = document.getElementById('p-clave-agente');
+  if (!select) return;
+
+  const aseguradora_id = document.getElementById('p-aseguradora').value;
+  const titular        = titularActual();
+
+  const vaciar = (msg, hint = '') => {
+    select.innerHTML = `<option value="">${fmt.esc(msg)}</option>`;
+    select.disabled = true;
+    setClaveHint(hint);
+    mostrarAvisoClave('');
+  };
+
+  if (!aseguradora_id) { vaciar('Elige aseguradora'); return; }
+  if (!titular)        { vaciar('Elige un agente'); return; }
+
+  const miToken = ++tokenClaves;
+  vaciar('Cargando…');
+
+  let claves;
+  try {
+    claves = await agentesService.getClaves(titular, { aseguradora_id, activo: true }) || [];
+  } catch (err) {
+    if (miToken !== tokenClaves) return;
+
+    // Un sub-agente no alcanza la ficha de su titular (el alcance de cartera lo
+    // deja fuera), así que aquí puede llegar un 403 legítimo. No es un fallo que
+    // deba alarmar: la clave la resuelve el backend con el titular igual. Se
+    // explica y se sigue, sin toast de error.
+    if (err?.status === 403 && perfil === 'subagente') {
+      vaciar('La resuelve tu agente titular',
+        `La póliza se emite con la clave de ${titularNombre()}; el sistema la asigna al guardar.`);
+      return;
+    }
+
+    console.error('No se pudieron cargar las claves del agente', err);
+    toast.error('No se pudieron cargar las claves del agente');
+    vaciar('No disponible');
+    return;
+  }
+  if (miToken !== tokenClaves) return;   // llegó tarde: la descartamos
+
+  const etiqueta = (c) => `${c.plaza_nombre || 'Sin plaza'} — ${c.clave}`;
+
+  // Una sola clave: es el caso normal, se llena solo y no se le pide nada al
+  // usuario. El campo queda deshabilitado pero CON valor, y `guardarPoliza` lo
+  // lee igual (un select disabled conserva su value).
+  if (claves.length === 1) {
+    const c = claves[0];
+    select.innerHTML = `<option value="${fmt.esc(c.id)}">${fmt.esc(etiqueta(c))}</option>`;
+    select.value = c.id;
+    select.disabled = true;
+    setClaveHint('Única clave del agente con esta aseguradora.');
+    mostrarAvisoClave('');
+    return;
+  }
+
+  // Varias: sin preselección, para que el usuario elija a conciencia. La plaza
+  // de la venta no se puede adivinar y el backend responde 422 si no se dice.
+  if (claves.length > 1) {
+    select.innerHTML = '<option value="">— Elige la clave —</option>' +
+      claves.map(c => `<option value="${fmt.esc(c.id)}">${fmt.esc(etiqueta(c))}</option>`).join('');
+    select.value = '';
+    select.disabled = false;
+    setClaveHint(`El agente tiene ${claves.length} claves con esta aseguradora: indica con cuál se vendió.`);
+    mostrarAvisoClave('');
+    return;
+  }
+
+  // Ninguna. En QA la póliza se guarda igual; en producción el backend la
+  // rechaza, así que el aviso evita que el problema se descubra al final del
+  // formulario. Cuando captura un sub-agente, el mensaje nombra a OTRA persona
+  // —su titular—, y por eso lleva una redacción propia que lo explica.
+  vaciar('Sin clave registrada');
+  mostrarAvisoClave(perfil === 'subagente'
+    ? `Tu agente titular, ${titularNombre()}, no tiene clave registrada con ${aseguradoraNombre()}. `
+      + 'Las pólizas se emiten con su clave, así que hay que registrarla.'
+    : `${titularNombre()} no tiene clave registrada con ${aseguradoraNombre()}. `
+      + 'La póliza se guardará sin clave y habrá que completarla después.');
+}
+
+// Filtro de plaza del listado (Bf-12): responde "¿cuánto produjo la plaza Sur?".
+async function cargarPlazasFiltro() {
+  const select = document.getElementById('filtro-plaza');
+  if (!select) return;
+  try {
+    const plazas = await catalogosService.getPlazas({ activo: true }) || [];
+    select.innerHTML = '<option value="">Todas las plazas</option>' +
+      plazas.map(p => `<option value="${fmt.esc(p.id)}">${fmt.esc(p.nombre)}</option>`).join('');
+  } catch (err) {
+    console.error('No se pudieron cargar las plazas', err);
+    select.style.display = 'none';
+  }
+}
+
 // Filtro de uso del listado: solo tiene sentido con un ramo que tenga usos.
 async function cargarUsosFiltro(ramoId) {
   const select = document.getElementById('filtro-uso');
@@ -398,6 +559,10 @@ async function guardarPoliza() {
     uso_id:                 val('p-uso'),
     prima_neta:             num('p-prima-neta'),
     comision_subagente_pct: num('p-comision-sub'),
+    // B2-11. Con una sola clave viene ya resuelta (campo deshabilitado, que
+    // conserva su value); con varias, es lo que el usuario eligió; sin ninguna,
+    // va undefined y el backend decide según CLAVE_AGENTE_OBLIGATORIA.
+    clave_agente_id:        val('p-clave-agente'),
   };
 
   // El agente raíz solo acredita al sub-agente: el titular es él y lo resuelve
@@ -434,7 +599,8 @@ function mostrarRecibos(poliza) {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function limpiarFiltros() {
   state.filtros = {}; state.page = 1;
-  ['filtro-buscar', 'filtro-estatus', 'filtro-ramo', 'filtro-aseguradora', 'filtro-venc-desde', 'filtro-venc-hasta']
+  ['filtro-buscar', 'filtro-estatus', 'filtro-ramo', 'filtro-aseguradora', 'filtro-plaza',
+   'filtro-venc-desde', 'filtro-venc-hasta']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   pickerFiltroSub?.set('', '');
   cargarUsosFiltro('');
@@ -453,6 +619,12 @@ function limpiarForm() {
   // deshabilita al limpiar el formulario; el rol elevado sí, hasta elegir agente.
   habilitarSubagente(perfil === 'agente_raiz');
   document.getElementById('grupo-p-uso').style.display = 'none';
+  // La clave se recalcula al elegir aseguradora y agente; arranca en blanco.
+  tokenClaves++;
+  const selClave = document.getElementById('p-clave-agente');
+  if (selClave) { selClave.innerHTML = '<option value="">Elige aseguradora</option>'; selClave.disabled = true; }
+  setClaveHint('');
+  mostrarAvisoClave('');
   // Fecha de venta: hoy por defecto (§2).
   document.getElementById('p-fecha-venta').value = new Date().toISOString().slice(0, 10);
   document.getElementById('p-aseguradora').value = '';

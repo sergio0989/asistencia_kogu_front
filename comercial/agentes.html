@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Agentes — Kogu Asistencias</title>
-  <link rel="stylesheet" href="/styles/styles.css?v=1.6">
+  <link rel="stylesheet" href="/styles/styles.css?v=1.7">
   <style>
     .filters-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
     .filters-bar input,.filters-bar select{height:36px;padding:0 12px;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;background:#fff}
@@ -14,6 +14,21 @@
     .badge-secondary{background:#f1f5f9;color:#64748b}.badge-warning{background:#fef9c3;color:#92400e}.badge-danger{background:#fee2e2;color:#991b1b}
     .status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
     .dot-active{background:#16a34a}.dot-inactive{background:#94a3b8}
+    /* La clave se compara carácter por carácter contra un estado de cuenta:
+       en monoespaciada, 0234 y O234 se distinguen a simple vista. */
+    .clave-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-weight:700;letter-spacing:.03em}
+    .clave-baja{opacity:.55}
+    .clave-baja .clave-mono{text-decoration:line-through}
+    /* styles.css fija `.modal-box{width:min(540px,94vw)}`, y esa anchura gana
+       sobre el max-width inline: el panel de claves necesita declararla. */
+    #modal-claves .modal-box{width:min(880px,94vw)}
+    /* En pantalla angosta la tabla scrollea dentro del panel, en vez de que se
+       pierdan el estado y el botón de editar por el borde. */
+    #claves-list{overflow-x:auto}
+    .claves-tabla{width:100%;font-size:13px;border-collapse:collapse}
+    .claves-tabla th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;padding:6px 8px;border-bottom:1px solid #e2e8f0}
+    .claves-tabla td{padding:8px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+    .aviso-box{background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:12px 14px;font-size:13px;color:#0369a1}
   </style>
 </head>
 <body>
@@ -122,20 +137,96 @@
   </div>
 </div>
 
-<script src="/js/config.js?v=1.6"></script>
-<script src="/js/services/api.js?v=1.6"></script>
-<script src="/js/services/auth.service.js?v=1.6"></script>
-<script src="/js/services/catalogos.service.js?v=1.6"></script>
-<script src="/js/services/agentes.service.js?v=1.6"></script>
-<script src="/js/utils/format.js?v=1.6"></script>
-<script src="/js/utils/toast.js?v=1.6"></script>
-<script src="/js/utils/modal.js?v=1.6"></script>
-<script src="/js/utils/picker.js?v=1.6"></script>
-<script src="/js/utils/table.js?v=1.6"></script>
-<script src="/js/utils/formErrors.js?v=1.6"></script>
-<script src="/js/utils/permisos.js?v=1.6"></script>
-<script src="/js/components/sidebar.js?v=1.6"></script>
-<script src="/js/utils/auth.guard.js?v=1.6"></script>
-<script src="/js/pages/agentes.js?v=1.6"></script>
+<!-- MODAL: Claves del agente por aseguradora y plaza (Bf-12) -->
+<div class="modal-backdrop" id="modal-claves" style="display:none">
+  <div class="modal-box" style="max-width:760px">
+    <div class="modal-header"><h3 class="modal-title">Claves · <span id="claves-agente-nombre"></span></h3>
+      <button class="modal-close" onclick="modal.close('modal-claves')">&times;</button></div>
+    <div class="modal-body">
+      <div id="claves-list" style="margin-bottom:14px"></div>
+      <div id="claves-alta" style="border-top:1px solid #f1f5f9;padding-top:12px">
+        <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:8px">Registrar una clave</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Aseguradora <span style="color:#dc2626">*</span></label>
+            <select id="cl-aseguradora" class="form-control"><option value="">—</option></select></div>
+          <div class="form-group"><label>Plaza <span style="color:#dc2626">*</span></label>
+            <select id="cl-plaza" class="form-control"><option value="">—</option></select></div>
+          <div class="form-group"><label>Clave <span style="color:#dc2626">*</span></label>
+            <input type="text" id="cl-clave" class="form-control clave-mono" maxlength="40" placeholder="0234, A-234…">
+            <div style="font-size:11px;color:#94a3b8;margin-top:4px">Tal como la emite la aseguradora, con ceros a la izquierda si los lleva.</div></div>
+          <div class="form-group"><label>Nombre en la aseguradora</label>
+            <input type="text" id="cl-plaza-aseguradora" class="form-control" maxlength="100" placeholder="Metropolitana…"></div>
+          <div class="form-group"><label>Fecha de alta</label>
+            <input type="date" id="cl-fecha-alta" class="form-control"></div>
+          <div class="form-group form-group--full"><label>Notas</label>
+            <input type="text" id="cl-notas" class="form-control" maxlength="1000"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" onclick="modal.close('modal-claves')">Cerrar</button>
+      <button class="btn btn-primary" id="btn-guardar-clave">Registrar clave</button></div>
+  </div>
+</div>
+
+<!-- MODAL: Editar / dar de baja una clave (Bf-12) -->
+<div class="modal-backdrop" id="modal-clave-editar" style="display:none">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-header"><h3 class="modal-title">Editar clave</h3>
+      <button class="modal-close" onclick="modal.close('modal-clave-editar')">&times;</button></div>
+    <div class="modal-body"><div class="form-grid">
+      <!-- Aseguradora y plaza quedan bloqueadas: un renglón nunca se mueve, se
+           da de baja y se registra otro. Si no se bloquea aquí, el backend
+           responde 422 y el usuario no entiende por qué. -->
+      <div class="form-group"><label>Aseguradora</label>
+        <input type="text" id="ce-aseguradora" class="form-control" disabled></div>
+      <div class="form-group"><label>Plaza</label>
+        <input type="text" id="ce-plaza" class="form-control" disabled></div>
+      <div class="form-group form-group--full">
+        <div style="font-size:11px;color:#94a3b8;margin-top:-4px">
+          Para cambiar de plaza o aseguradora, da de baja esta clave y registra una nueva.
+        </div>
+      </div>
+      <div class="form-group"><label>Clave</label>
+        <input type="text" id="ce-clave" class="form-control clave-mono" maxlength="40"></div>
+      <div class="form-group"><label>Nombre en la aseguradora</label>
+        <input type="text" id="ce-plaza-aseguradora" class="form-control" maxlength="100"></div>
+      <div class="form-group"><label>Fecha de alta</label>
+        <input type="date" id="ce-fecha-alta" class="form-control"></div>
+      <div class="form-group" id="grupo-ce-fecha-baja" style="display:none"><label>Fecha de baja <span style="color:#dc2626">*</span></label>
+        <input type="date" id="ce-fecha-baja" class="form-control"></div>
+      <div class="form-group form-group--full"><label>Notas</label>
+        <input type="text" id="ce-notas" class="form-control" maxlength="1000"></div>
+      <div class="form-group form-group--full" id="ce-aviso-baja" style="display:none">
+        <div class="aviso-box">
+          La clave deja de usarse para pólizas nuevas, pero se conserva: las pólizas
+          emitidas con ella la siguen mostrando.
+        </div>
+      </div>
+    </div></div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:space-between;padding:16px 24px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-ghost" id="btn-baja-clave" style="color:#b91c1c">Dar de baja</button>
+      <span style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="modal.close('modal-clave-editar')">Cancelar</button>
+        <button class="btn btn-primary" id="btn-guardar-clave-editar">Guardar</button>
+      </span></div>
+  </div>
+</div>
+
+<script src="/js/config.js?v=1.7"></script>
+<script src="/js/services/api.js?v=1.7"></script>
+<script src="/js/services/auth.service.js?v=1.7"></script>
+<script src="/js/services/catalogos.service.js?v=1.7"></script>
+<script src="/js/services/agentes.service.js?v=1.7"></script>
+<script src="/js/utils/format.js?v=1.7"></script>
+<script src="/js/utils/toast.js?v=1.7"></script>
+<script src="/js/utils/modal.js?v=1.7"></script>
+<script src="/js/utils/picker.js?v=1.7"></script>
+<script src="/js/utils/table.js?v=1.7"></script>
+<script src="/js/utils/formErrors.js?v=1.7"></script>
+<script src="/js/utils/permisos.js?v=1.7"></script>
+<script src="/js/components/sidebar.js?v=1.7"></script>
+<script src="/js/utils/auth.guard.js?v=1.7"></script>
+<script src="/js/pages/agentes.js?v=1.7"></script>
 </body>
 </html>
